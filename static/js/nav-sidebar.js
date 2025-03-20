@@ -107,9 +107,10 @@ class NavigationSidebar {
         if (this.isActive) {
             this.closeSidebar();
         } else {
-            // Hack that forces a DOM rebuild, ToastUI does not do this by default for an obviously good reason
+            // Hack that forces a DOM rebuild, 
+            //ToastUI does not do this by default for an obviously good reason
             // but since the user will want to obviously see this
-            // this is fine for a one time rebuild at user's execution
+            // this is fine for a one time rebuild at user's request
             window.editor.setContent(window.editor.getContent());
             this.openSidebar();
         }
