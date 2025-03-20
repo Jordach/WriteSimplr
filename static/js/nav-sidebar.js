@@ -28,7 +28,7 @@ class NavigationSidebar {
         // Hide initially
         this.sidebarElement.classList.remove('active');
         
-        // Perform initial heading scan
+        // Perform initial heading scan - even if there's nothing loaded
         this.scanDocumentHeadings();
     }
     
@@ -85,11 +85,6 @@ class NavigationSidebar {
     }
     
     attachEventListeners() {
-        // // Toggle sidebar visibility
-        // this.toggleButton.addEventListener('click', () => {
-        //     this.toggleSidebar();
-        // });
-        
         // Close the sidebar
         this.closeButton.addEventListener('click', () => {
             this.closeSidebar();
@@ -106,31 +101,23 @@ class NavigationSidebar {
                 this.closeSidebar();
             }
         });
-        
-        // Listen for editor content changes to update the navigation
-        if (window.editor && window.editor.editor) {
-            const toastEditor = window.editor.editor;
-            
-            toastEditor.on('change', () => {
-                // Debounce the scanning to avoid excessive updates
-                clearTimeout(this._scanTimeout);
-                this._scanTimeout = setTimeout(() => {
-                    this.scanDocumentHeadings();
-                }, 500);
-            });
-        }
     }
     
     toggleSidebar() {
         if (this.isActive) {
             this.closeSidebar();
         } else {
+            // Hack that forces a DOM rebuild, ToastUI does not do this by default for an obviously good reason
+            // but since the user will want to obviously see this
+            // this is fine for a one time rebuild at user's execution
+            window.editor.setContent(window.editor.getContent());
             this.openSidebar();
         }
     }
     
     openSidebar() {
-        // Scan for headings before opening
+        // Scan for headings before opening the menu
+        // as the DOM will always be rebuilt before hand
         this.scanDocumentHeadings();
         
         // Show the sidebar

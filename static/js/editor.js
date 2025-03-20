@@ -1217,49 +1217,108 @@ class EditorFooter {
     }
     
     updateWordCount() {
-        let text = '';
+        if (!this.editor || !this.editor.editor) return;
         
-        if (this.editor.editor) {
-            // Get content from ToastUI Editor
-            text = this.editor.editor.getMarkdown();
+        let wordCount = 0;
+        const toastEditor = this.editor.editor;
+        
+        try {
+            if (toastEditor.isWysiwygMode()) {
+                // In WYSIWYG mode, we can directly access the rendered content
+                const editorEl = document.querySelector('div.ProseMirror.toastui-editor-contents');
+                if (!editorEl) return;
+                
+                // Get all potential block elements that could contain text
+                const blockElements = Array.from(editorEl.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, div, br'));
+                
+                // Find all text nodes organized by their block containers
+                const textNodesByBlock = [];
+                
+                // Process each block element
+                blockElements.forEach((block, index) => {
+                    // Skip the main editor container
+                    if (block === editorEl || block.classList.contains('toastui-editor-contents')) {
+                        return;
+                    }
+                    
+                    // Collect text nodes in this block
+                    const textNodes = [];
+                    const collectTextNodes = (node) => {
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            textNodes.push(node);
+                        } else if (node.nodeType === Node.ELEMENT_NODE) {
+                            // Process children
+                            Array.from(node.childNodes).forEach(collectTextNodes);
+                        }
+                    };
+                    // Process this block
+                    collectTextNodes(block);
+                    
+                    // Store if we found any text nodes
+                    if (textNodes.length > 0) {
+                        textNodesByBlock.push(textNodes);
+                    }
+                });
+                
+                for (let i=0; i < textNodesByBlock.length; i++) {
+                    const _node = textNodesByBlock[i];
+                    if (_node[0]) {
+                        wordCount += _node[0].data.split(/\s+/).filter(word => word.length > 0).length;
+                    }
+                }
+            } else {
+                // In Markdown mode, we can use the preview pane
+                const previewEl = document.querySelector('.toastui-editor-md-preview');
+                if (previewEl) {
+                    // Get the text content of the preview, which strips all HTML tags
+                    const text = previewEl.textContent || '';
+                    // Count words by splitting on whitespace and filtering empty strings
+                    wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+                } else {
+                    // Fallback in case preview isn't available in markdown mode
+                    // Get markdown and convert to plain text ourselves
+                    const markdown = toastEditor.getMarkdown() || '';
+                    
+                    // Use a simple HTML conversion approach for plaintext
+                    // Create a temporary div to render the HTML
+                    const tempDiv = document.createElement('div');
+                    
+                    // Use ToastUI's own markdown renderer if available
+                    if (toastEditor.convertor && typeof toastEditor.convertor.toHTMLWithCodeHighlight === 'function') {
+                        tempDiv.innerHTML = toastEditor.convertor.toHTMLWithCodeHighlight(markdown);
+                    } else {
+                        // Fallback to a simpler conversion - this won't be as accurate
+                        // but better than counting markdown symbols
+                        tempDiv.innerHTML = markdown
+                            .replace(/^#+\s+(.*?)$/gm, '$1') // Remove headings
+                            .replace(/^(>\s*)+/gm, '')       // Remove blockquotes
+                            .replace(/^[\s]*[-*+]\s+/gm, '') // Remove unordered lists
+                            .replace(/^[\s]*\d+\.\s+/gm, '') // Remove ordered lists
+                            .replace(/(\*\*|__)(.*?)\1/g, '$2') // Remove bold
+                            .replace(/(\*|_)(.*?)\1/g, '$2')    // Remove italic
+                            .replace(/~~(.*?)~~/g, '$1')        // Remove strikethrough
+                            .replace(/`([^`]+)`/g, '$1')        // Remove inline code
+                            .replace(/```[\s\S]*?```/g, function(match) { // Handle code blocks
+                                return match.replace(/```/g, '');
+                            })
+                            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Handle links
+                            .replace(/!\[([^\]]+)\]\([^)]+\)/g, '$1'); // Handle images
+                    }
+                    
+                    // Get the text content, which strips all HTML tags
+                    const text = tempDiv.textContent || '';
+                    // Count words
+                    wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+                }
+            }
+        } catch (e) {
+            console.error('Error calculating word count:', e);
+            // Fallback to a simple method if there's an error
+            const markdown = toastEditor.getMarkdown() || '';
+            wordCount = markdown.split(/\s+/).filter(word => word.length > 0).length;
         }
         
-        // Process the text to remove Markdown formatting
-        
-        // First, handle block-level elements
-        
-        // Remove blockquotes (including spaced nested blockquotes like "> > > text")
-        text = text.replace(/^(>\s*)+/gm, '');
-        
-        // Remove headings (#, ##, etc.)
-        text = text.replace(/^#+\s+/gm, '');
-        
-        // Remove list markers (-, *, +, 1., etc.)
-        text = text.replace(/^[\s]*[-*+]\s+/gm, '');
-        text = text.replace(/^[\s]*\d+\.\s+/gm, '');
-        
-        // Remove code block markers but keep content
-        text = text.replace(/```[\s\S]*?```/g, function(match) {
-            return match.replace(/```/g, '');
-        });
-        
-        // Then, handle inline formatting
-        
-        // Remove bold/italic/links/etc.
-        text = text.replace(/(\*\*|__)(.*?)\1/g, '$2'); // Bold
-        text = text.replace(/(\*|_)(.*?)\1/g, '$2');    // Italic
-        text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Links
-        text = text.replace(/!\[([^\]]+)\]\([^)]+\)/g, '$1'); // Images
-        text = text.replace(/`([^`]+)`/g, '$1'); // Inline code
-        
-        // Handle strikethrough
-        text = text.replace(/~~(.*?)~~/g, '$1');
-        
-        // Handle HTML tags (remove completely)
-        text = text.replace(/<[^>]*>/g, '');
-        
-        // Count words - split by whitespace and filter out empty strings
-        const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+        // Update the stats
         this.stats.wordCount = wordCount;
         
         // Update the display
