@@ -1224,6 +1224,40 @@ class EditorFooter {
             text = this.editor.editor.getMarkdown();
         }
         
+        // Process the text to remove Markdown formatting
+        
+        // First, handle block-level elements
+        
+        // Remove blockquotes (including spaced nested blockquotes like "> > > text")
+        text = text.replace(/^(>\s*)+/gm, '');
+        
+        // Remove headings (#, ##, etc.)
+        text = text.replace(/^#+\s+/gm, '');
+        
+        // Remove list markers (-, *, +, 1., etc.)
+        text = text.replace(/^[\s]*[-*+]\s+/gm, '');
+        text = text.replace(/^[\s]*\d+\.\s+/gm, '');
+        
+        // Remove code block markers but keep content
+        text = text.replace(/```[\s\S]*?```/g, function(match) {
+            return match.replace(/```/g, '');
+        });
+        
+        // Then, handle inline formatting
+        
+        // Remove bold/italic/links/etc.
+        text = text.replace(/(\*\*|__)(.*?)\1/g, '$2'); // Bold
+        text = text.replace(/(\*|_)(.*?)\1/g, '$2');    // Italic
+        text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Links
+        text = text.replace(/!\[([^\]]+)\]\([^)]+\)/g, '$1'); // Images
+        text = text.replace(/`([^`]+)`/g, '$1'); // Inline code
+        
+        // Handle strikethrough
+        text = text.replace(/~~(.*?)~~/g, '$1');
+        
+        // Handle HTML tags (remove completely)
+        text = text.replace(/<[^>]*>/g, '');
+        
         // Count words - split by whitespace and filter out empty strings
         const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
         this.stats.wordCount = wordCount;
