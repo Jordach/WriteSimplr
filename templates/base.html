@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WriteSimplr</title>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nav-sidebar.css') }}">
+    <!-- Include Font Awesome for icons -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
+    
+    <!-- Add Showdown for markdown conversion -->
+    <script src="{{ url_for('static', filename='js/libs/showdown.min.js') }}"></script>
+    
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% block content %}{% endblock %}
+    
+    <script defer src="{{ url_for('static', filename='js/nav-sidebar.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/fileManager.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/editor.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+/* Navigation Sidebar Styles */
+.nav-sidebar {
+    position: absolute;
+    top: 64px;
+    left: calc(250px + 30%);
+    width: 25%;
+    height: calc(100vh - 160px);
+    max-height: 600px;
+    background-color: white;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    z-index: -900;
+    transform: translateY(-64px);
+    opacity: 0;
+    transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+    overflow: hidden;
+}
+
+.nav-sidebar.active {
+    transform: translateX(0);
+    opacity: 1;
+    z-index: 900;
+}
+
+.nav-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.nav-sidebar-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--primary-color);
+}
+
+.close-nav-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    font-size: 16px;
+    padding: 0;
+}
+
+.close-nav-btn:hover {
+    color: #333;
+}
+
+.nav-sidebar-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px 0;
+}
+
+/* Navigation Tree Styles */
+.nav-tree {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nav-item {
+    margin: 0;
+    padding: 0;
+}
+
+.nav-link {
+    display: block;
+    padding: 6px 15px;
+    color: #333;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.nav-link:hover {
+    background-color: rgba(74, 111, 165, 0.1);
+    border-left-color: var(--primary-color);
+}
+
+.nav-link.active {
+    background-color: rgba(74, 111, 165, 0.15);
+    border-left-color: var(--primary-color);
+    font-weight: bold;
+}
+
+/* Indentation for nested headings */
+.nav-item.h2 .nav-link {
+    padding-left: 15px;
+}
+
+.nav-item.h3 .nav-link {
+    padding-left: 30px;
+    font-size: 0.95em;
+}
+
+.nav-item.h4 .nav-link {
+    padding-left: 45px;
+    font-size: 0.9em;
+    color: #555;
+}
+
+/* Toggle Button removed - will be part of the toolbar */
+/* Remove the standalone button styles */
+
+/* Overlay when sidebar is open */
+.nav-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 899;
+    display: none;
+}
+
+.nav-overlay.active {
+    display: block;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .nav-sidebar {
+        width: 260px;
+        top: 60px;
+        right: 10px;
+        height: calc(100vh - 120px);
+    }
+    
+    .toggle-nav-btn {
+        top: 60px;
+        right: 10px;
+    }
+}

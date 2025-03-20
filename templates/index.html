@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block head %}
+<!-- ToastUI Editor CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/libs/toastui-editor.min.css') }}"/>
+<!-- ToastUI Editor JS -->
+<script src="{{ url_for('static', filename='js/libs/toastui-editor-all.min.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="{{ url_for('static', filename='android-chrome-512x512.png') }}" alt="WriteSimplr Logo" class="sidebar-logo">
+            <h2>WriteSimplr</h2>
+            <button id="new-file-btn" title="New File"><i class="fas fa-file-plus"></i></button>
+            <button id="new-folder-btn" title="Create New Folder"><i class="fas fa-folder-plus"></i></button>
+        </div>
+        <div id="file-tree" class="file-tree"></div>
+    </div>
+    
+    <div class="main-content">
+        <div class="editor-container">
+            <!-- ToastUI Editor will be initialized on this div -->
+            <div id="editor"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for file/folder operations -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2 id="modal-title">Create New</h2>
+        <div id="modal-body">
+            <!-- Content will be dynamically inserted here -->
+        </div>
+    </div>
+</div>
+{% endblock %}

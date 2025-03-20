@@ -1,0 +1,166 @@
+/* Adjust the main content layout */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    /* Remove the toolbar-related top padding */
+    padding-top: 0;
+}
+
+
+/* Editor footer styles */
+.editor-footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 15px 0 15px;
+    background-color: #f0f0f0;
+    border-top: 1px solid #ddd;
+    border-left: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+    font-size: 12px;
+    color: #666;
+    line-height: 24px;
+    box-sizing: border-box;
+}
+
+/* Adjust editor container to accommodate the footer */
+.editor-container {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Footer elements style */
+.editor-footer span {
+    padding: 0 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .editor-footer {
+        padding: 5px 8px;
+        font-size: 10px;
+    }
+}
+
+/* ToastUI Editor customizations */
+.editor-container {
+    flex-grow: 1;
+    overflow: hidden;
+    height: 100%;
+    padding-left: 12.5%;
+    padding-right: 12.5%;
+    background: #e0e0e0;
+}
+
+.toastui-editor-defaultUI {
+    flex-grow: 1;
+    border: 1px solid #ddd;
+    border-radius: 0px !important;
+    border-bottom: none; /* Remove bottom border as it connects to footer */
+}
+
+/* Custom styles for the integrated toolbar items */
+.toastui-editor-dropdown-toolbar {
+    min-width: 100px;
+    border-radius: 0px !important;
+}
+
+/* Enhance dropdown styling */
+.toastui-editor-toolbar .toastui-editor-dropdown-toolbar {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Make color picker more visible */
+.toastui-editor-color-picker .toastui-editor-color {
+    width: 20px;
+    height: 20px;
+}
+
+/* Make the editor take full height */
+.toastui-editor-defaultUI,
+.toastui-editor-main,
+.toastui-editor-ww-container,
+.toastui-editor-md-container {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.toastui-editor-main {
+    flex-grow: 1;
+}
+
+.toastui-editor-ww-container .toastui-editor,
+.toastui-editor-md-container .toastui-editor {
+    flex-grow: 1;
+}
+
+/* Styles for font, size, and color customization */
+.toastui-editor-contents {
+    font-family: Garamond, serif;
+    font-size: 16px;
+    color: #333;
+}
+
+/* Fix some specifics for ToastUI */
+.toastui-editor-toolbar {
+    border-bottom: 1px solid #ebedf2;
+    border-radius: 0px !important;
+}
+
+.toastui-editor-defaultUI-toolbar {
+    background: #f0f0f0 !important;
+    border-radius: 0px !important;
+}
+
+.toastui-editor-popup {
+    z-index: 100;
+}
+
+/* Ensure all text elements in editor inherit the specified font styles */
+.toastui-editor-contents,
+.toastui-editor-contents *,
+.toastui-editor-md-preview,
+.toastui-editor-md-preview * {
+    font-family: inherit;
+    color: inherit;
+}
+
+/* Ensure formatting is maintained when switching between preview and edit modes */
+.toastui-editor-main {
+    font-family: inherit;
+    color: inherit;
+}
+
+/* Fix for CodeMirror editor (markdown mode) */
+.toastui-editor-md-container .CodeMirror {
+    font-family: inherit;
+    color: inherit;
+}
+
+/* Fix for code blocks to ensure they use a monospace font regardless of editor settings */
+.toastui-editor-contents pre,
+.toastui-editor-contents code,
+.toastui-editor-md-preview pre,
+.toastui-editor-md-preview code {
+    font-family: 'Courier New', monospace !important;
+}
+
+.toastui-editor-mode-switch {
+    display: none !important;
+}
+
+.toastui-editor-defaultUI-toolbar button,
+.toastui-editor-toolbar-select {
+    border: 1px solid #d0d0d0 !important;
+}
+
+.toastui-editor-toolbar-select {
+    height: 32px !important;
+    padding-top: 4px !important;
+}
+
+.toastui-editor-toolbar-divider {
+    margin: 14px 6px !important;
+}
