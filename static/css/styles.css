@@ -51,6 +51,7 @@ body {
     padding: 8px 15px;
     border-bottom: 1px solid var(--border-color);
     height: 46px;
+    background-color: #fafafa;
 }
 
 .sidebar-header h2 {
