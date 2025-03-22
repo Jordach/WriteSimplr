@@ -180,3 +180,10 @@
 .toastui-editor-contents table tr:nth-child(even) {
     background-color: #f4f4f4 !important;
 }
+
+.toastui-editor-ww-container .toastui-editor-contents {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+}
