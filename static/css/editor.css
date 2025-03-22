@@ -172,3 +172,11 @@
     box-shadow: 0 0 16px rgba(0, 0, 0, 0.25);
     z-index: 0;
 }
+
+.toastui-editor-contents table th {
+    background-color: #e0e0e0 !important;
+}
+
+.toastui-editor-contents table tr:nth-child(even) {
+    background-color: #f4f4f4 !important;
+}
