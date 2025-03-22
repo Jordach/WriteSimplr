@@ -17,9 +17,6 @@
     justify-content: space-between;
     padding: 0 15px 0 15px;
     background-color: #f0f0f0;
-    border-top: 1px solid #ddd;
-    border-left: 1px solid #ddd;
-    border-right: 1px solid #ddd;
     font-size: 12px;
     color: #666;
     line-height: 24px;
@@ -49,13 +46,13 @@
     overflow: hidden;
     height: 100%;
     background: #e0e0e0;
+    box-sizing: border-box;
 }
 
 .toastui-editor-defaultUI {
     flex-grow: 1;
-    border: 1px solid #ddd;
+    border: none !important;
     border-radius: 0px !important;
-    border-bottom: none; /* Remove bottom border as it connects to footer */
 }
 
 /* Custom styles for the integrated toolbar items */
@@ -106,12 +103,13 @@
 .toastui-editor-toolbar {
     border-bottom: 1px solid #ebedf2;
     border-radius: 0px !important;
-    z-index: 10;
+    z-index: 11;
 }
 
 .toastui-editor-defaultUI-toolbar {
     background: #f0f0f0 !important;
     border-radius: 0px !important;
+    border-bottom: 0px solid #fff !important;
     width: 100% !important;
     justify-content: center !important;
     box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
