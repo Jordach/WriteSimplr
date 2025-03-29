@@ -57,6 +57,8 @@
         button.addEventListener('click', () => {
             if (window.fileManager) {
                 window.fileManager.saveCurrentFile();
+                // Rebuild the DOM upon saving manually
+                this.editor.setContent(this.editor.getContent());
             }
         });
         return button;
@@ -1008,37 +1010,30 @@
                 return;
             }
         }
-        
-        // If user confirms or there are no unsaved changes, prompt for new file name
-        if (window.fileManager) {
-            // Use the enhanced showNewFileModal
-            window.fileManager.showNewFileModal();
-            return;
-        }
-        
-        // This is a fallback for if fileManager isn't available
-        // Clear current document path
-        if (window.fileManager) {
-            window.fileManager.currentFilePath = null;
-            window.fileManager.updateDocumentTitle(null);
-        }
-        
+
         // Clear editor content
         if (this.editor) {
-            this.setContent('');
-            
             // Reset _lastSavedContent for change detection
             this._lastSavedContent = '';
+
+            this.setContent('');
         }
         
         // Reset format options to defaults
         const defaultFormatOptions = {
-            font: 'Arial, sans-serif',
-            fontSize: '12pt',
-            fontColor: '#333333'
+            font: 'Garamond, serif',
+            fontSize: '14pt',
+            fontColor: '#222222'
         };
-        
         this.applyFormatOptions(defaultFormatOptions);
+
+        // Prompt for new file name
+        if (window.fileManager) {
+            window.fileManager.currentFilePath = null;
+            window.fileManager.updateDocumentTitle(null);
+            // Use the enhanced showNewFileModal
+            window.fileManager.showNewFileModal();
+        }
         
         console.log("Created new unsaved document");
     }

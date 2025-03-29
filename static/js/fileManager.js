@@ -652,6 +652,7 @@ class FileManager {
     }
     
     saveCurrentFile(isAutoSave = false) {
+        let wasNoFile = false;
         if (!this.currentFilePath) {
             this.showNewFileModal();
             return;
@@ -672,9 +673,9 @@ class FileManager {
         
         // Since we removed the old toolbar, get format options directly from the editor
         const formatOptions = window.editor.currentFormatOptions || {
-            font: 'Arial, sans-serif',
-            fontSize: '16px',
-            fontColor: '#333333'
+            font: 'Garamond, serif',
+            fontSize: '14pt',
+            fontColor: '#222222'
         };
         
         // Make the save request
@@ -719,14 +720,15 @@ class FileManager {
             indicator = document.createElement('div');
             indicator.id = 'save-indicator';
             indicator.style.position = 'fixed';
-            indicator.style.bottom = '20px';
-            indicator.style.right = '20px';
+            indicator.style.bottom = '32pt';
+            indicator.style.right = '8pt';
             indicator.style.backgroundColor = '#4CAF50';
             indicator.style.color = 'white';
             indicator.style.padding = '10px 20px';
             indicator.style.borderRadius = '4px';
             indicator.style.opacity = '0';
-            indicator.style.transition = 'opacity 0.3s';
+            indicator.style.transition = 'opacity 0.5s';
+            indicator.style.zIndex = '20';
             document.body.appendChild(indicator);
         }
         

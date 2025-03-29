@@ -17,9 +17,9 @@
     justify-content: space-between;
     padding: 0 15px 0 15px;
     background-color: #f0f0f0 !important;
-    font-size: 12px;
+    font-size: 12pt;
     color: #666;
-    line-height: 24px;
+    line-height: 16pt;
     box-sizing: border-box;
     z-index: 10;
     box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);

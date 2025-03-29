@@ -108,7 +108,7 @@ class NavigationSidebar {
             this.closeSidebar();
         } else {
             // Hack that forces a DOM rebuild, 
-            //ToastUI does not do this by default for an obviously good reason
+            // ToastUI does not do this by default for an obviously good reason
             // but since the user will want to obviously see this
             // this is fine for a one time rebuild at user's request
             window.editor.setContent(window.editor.getContent());
@@ -269,7 +269,7 @@ class NavigationSidebar {
             
             // Find the scrollable container based on the current mode
             if (toastEditor.isWysiwygMode()) {
-                editorContainer = document.querySelector('.toastui-editor-ww-container');
+                editorContainer = document.querySelector('.toastui-editor-contents');
             } else {
                 editorContainer = document.querySelector('.toastui-editor-md-container');
             }
