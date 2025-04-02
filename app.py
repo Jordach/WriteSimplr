@@ -448,11 +448,11 @@ def check_auth():
         'validCredentials': valid_credentials
     })
 
-@app.route('/api/auth/users', methods=['GET'])
-@requires_auth
-def list_users():
-    """List all usernames."""
-    return jsonify(get_users())
+# @app.route('/api/auth/users', methods=['GET'])
+# @requires_auth
+# def list_users():
+#     """List all usernames."""
+#     return jsonify(get_users())
 
 # @app.route('/api/auth/users', methods=['POST'])
 # @requires_auth
@@ -483,22 +483,22 @@ def list_users():
 #     else:
 #         return jsonify({'error': 'Failed to delete user or user not found'}), 404
 
-@app.route('/api/auth/users/<username>', methods=['PUT'])
-@requires_auth
-def change_password(username):
-    """Update a user's password."""
-    data = request.json
-    new_password = data.get('password', '')
+# @app.route('/api/auth/users/<username>', methods=['PUT'])
+# @requires_auth
+# def change_password(username):
+#     """Update a user's password."""
+#     data = request.json
+#     new_password = data.get('password', '')
     
-    if not new_password:
-        return jsonify({'error': 'New password required'}), 400
+#     if not new_password:
+#         return jsonify({'error': 'New password required'}), 400
     
-    success = update_user_password(username, new_password)
+#     success = update_user_password(username, new_password)
     
-    if success:
-        return jsonify({'success': True})
-    else:
-        return jsonify({'error': 'Failed to update password or user not found'}), 404
+#     if success:
+#         return jsonify({'success': True})
+#     else:
+#         return jsonify({'error': 'Failed to update password or user not found'}), 404
 
 if __name__ == '__main__':
     # app.run(debug=True)
