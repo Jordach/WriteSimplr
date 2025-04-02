@@ -7,6 +7,7 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from waitress import serve
 from werkzeug.utils import secure_filename
 from config import Config
+from auth import requires_auth, load_users, authenticate, add_user, delete_user, update_user_password, get_users
 
 # Make the template folder explicit to avoid path issues
 template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
@@ -139,6 +140,7 @@ def get_file():
         return jsonify({'error': f"Failed to read file: {str(e)}"}), 500
 
 @app.route('/api/file', methods=['POST'])
+@requires_auth
 def save_file():
     """Save or update a markdown file."""
     data = request.json
@@ -194,6 +196,7 @@ def save_file():
         return jsonify({'error': f"Failed to save file: {str(e)}"}), 500
 
 @app.route('/api/file', methods=['DELETE'])
+@requires_auth
 def delete_file():
     """Delete a markdown file and its associated JSON file."""
     file_path = request.args.get('path', '')
@@ -213,6 +216,7 @@ def delete_file():
     return jsonify({'success': True})
 
 @app.route('/api/directory', methods=['POST'])
+@requires_auth
 def create_directory():
     """Create a new directory."""
     data = request.json
@@ -247,6 +251,7 @@ def create_directory():
         return jsonify({'error': f"Failed to create directory: {str(e)}"}), 500
 
 @app.route('/api/directory', methods=['DELETE'])
+@requires_auth
 def delete_directory():
     """Delete a directory and all its contents."""
     dir_path = request.args.get('path', '')
@@ -260,6 +265,7 @@ def delete_directory():
     return jsonify({'success': True})
 
 @app.route('/api/upload', methods=['POST'])
+@requires_auth
 def upload_attachment():
     """Upload an attachment file with MD5 hash checking for duplicates."""
     if 'file' not in request.files:
@@ -326,6 +332,7 @@ def get_attachment(filename):
     return send_from_directory(os.path.join(app.config['WORK_DIR'], 'attachments'), filename)
 
 @app.route('/api/file/rename', methods=['POST'])
+@requires_auth
 def rename_file():
     """Rename a file or move it to a different directory."""
     data = request.json
@@ -375,6 +382,7 @@ def rename_file():
         return jsonify({'error': f"Failed to rename file: {str(e)}"}), 500
 
 @app.route('/api/directory/rename', methods=['POST'])
+@requires_auth
 def rename_directory():
     """Rename a directory or move it to a different location."""
     data = request.json
@@ -413,6 +421,84 @@ def rename_directory():
     except Exception as e:
         app.logger.error(f"Error renaming directory from {old_path} to {new_path}: {str(e)}")
         return jsonify({'error': f"Failed to rename directory: {str(e)}"}), 500
+
+# ===== User Authentication API Routes =====
+
+@app.route('/api/auth/check', methods=['GET'])
+def check_auth():
+    """Check if authentication is required and if provided credentials are valid."""
+    # Check if authentication is required (users exist)
+    auth_required = len(load_users()) > 0
+    
+    # Check credentials if provided
+    valid_credentials = False
+    auth = request.headers.get('Authorization')
+    
+    if auth and auth.startswith('Basic '):
+        try:
+            import base64
+            credentials = base64.b64decode(auth[6:]).decode('utf-8')
+            username, password = credentials.split(':', 1)
+            valid_credentials = authenticate(username, password)
+        except Exception:
+            valid_credentials = False
+    
+    return jsonify({
+        'authRequired': auth_required,
+        'validCredentials': valid_credentials
+    })
+
+@app.route('/api/auth/users', methods=['GET'])
+@requires_auth
+def list_users():
+    """List all usernames."""
+    return jsonify(get_users())
+
+# @app.route('/api/auth/users', methods=['POST'])
+# @requires_auth
+# def create_user():
+#     """Create a new user."""
+#     data = request.json
+#     username = data.get('username', '')
+#     password = data.get('password', '')
+    
+#     if not username or not password:
+#         return jsonify({'error': 'Username and password required'}), 400
+    
+#     success = add_user(username, password)
+    
+#     if success:
+#         return jsonify({'success': True})
+#     else:
+#         return jsonify({'error': 'Failed to create user or user already exists'}), 400
+
+# @app.route('/api/auth/users/<username>', methods=['DELETE'])
+# @requires_auth
+# def remove_user(username):
+#     """Delete a user."""
+#     success = delete_user(username)
+    
+#     if success:
+#         return jsonify({'success': True})
+#     else:
+#         return jsonify({'error': 'Failed to delete user or user not found'}), 404
+
+@app.route('/api/auth/users/<username>', methods=['PUT'])
+@requires_auth
+def change_password(username):
+    """Update a user's password."""
+    data = request.json
+    new_password = data.get('password', '')
+    
+    if not new_password:
+        return jsonify({'error': 'New password required'}), 400
+    
+    success = update_user_password(username, new_password)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'error': 'Failed to update password or user not found'}), 404
 
 if __name__ == '__main__':
     # app.run(debug=True)

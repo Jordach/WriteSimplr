@@ -405,3 +405,145 @@ body {
     padding: 10px;
     text-align: center;
 }
+
+/* Settings Modal Styles */
+#settings-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--primary-color);
+    margin-left: 8px;
+    font-size: 16px;
+}
+
+#settings-btn:hover {
+    color: #395782;
+}
+
+#settings-modal .modal-content {
+    max-width: 500px;
+}
+
+/* Tab Navigation */
+.settings-tabs {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.settings-tab-header {
+    display: flex;
+    margin-bottom: 15px;
+}
+
+.tab-btn {
+    padding: 8px 15px;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    background-color: var(--sidebar-bg);
+    color: var(--primary-color);
+    font-size: 14px;
+}
+
+.tab-btn:hover {
+    background-color: var(--sidebar-bg);
+    color: #222222;
+}
+
+.tab-btn.active {
+    border-bottom: 2px solid var(--primary-color);
+    font-weight: bold;
+    background-color: var(--primary-color);
+    color: var(--sidebar-bg);
+}
+
+.tab-panel {
+    display: none;
+    padding: 10px 0;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+/* Auth Panel */
+.auth-info {
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+}
+
+.auth-management {
+    border-top: 1px solid #eee;
+    padding-top: 15px;
+}
+
+.settings-btn {
+    padding: 8px 15px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.settings-btn:hover {
+    background-color: #395782;
+}
+
+/* User Management */
+.user-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.change-password-btn, .delete-user-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    margin-left: 5px;
+}
+
+.change-password-btn {
+    color: var(--primary-color);
+}
+
+.delete-user-btn {
+    color: #d32f2f;
+}
+
+.change-password-btn:hover, .delete-user-btn:hover {
+    opacity: 0.8;
+}
+
+/* Input Styles */
+.settings-tabs input[type="text"],
+.settings-tabs input[type="password"] {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    box-sizing: border-box;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.settings-tabs input[type="text"]:focus,
+.settings-tabs input[type="password"]:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+/* Error Messages */
+#login-error, #password-error {
+    color: #d32f2f;
+    margin-top: 10px;
+    font-size: 14px;
+}
