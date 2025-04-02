@@ -46,244 +46,244 @@
             fontColor: document.getElementById('font-color-picker')?.value || '#222222'
         };    
     
-    // Create custom button functions
-    const createSaveButton = () => {
-        const button = document.createElement('button');
-        button.className = 'toastui-editor-toolbar-item-wrapper';
-        button.style.background = 'inherit';
-        button.style.margin = '0';
-        button.text = '';
-        button.innerHTML = '<i class="fas fa-save"></i>';
-        button.addEventListener('click', () => {
-            if (window.fileManager) {
-                window.fileManager.saveCurrentFile();
-                // Rebuild the DOM upon saving manually
-                this.editor.setContent(this.editor.getContent());
-            }
-        });
-        return button;
-    };
+        // Create custom button functions
+        const createSaveButton = () => {
+            const button = document.createElement('button');
+            button.className = 'toastui-editor-toolbar-item-wrapper';
+            button.style.background = 'inherit';
+            button.style.margin = '0';
+            button.text = '';
+            button.innerHTML = '<i class="fas fa-save"></i>';
+            button.addEventListener('click', () => {
+                if (window.fileManager) {
+                    window.fileManager.saveCurrentFile();
+                    // Rebuild the DOM upon saving manually
+                    this.editor.setContent(this.editor.getContent());
+                }
+            });
+            return button;
+        };
 
-    const createSaveAsButton = () => {
-        const button = document.createElement('button');
-        button.className = 'toastui-editor-toolbar-item-wrapper';
-        button.style.background = 'inherit';
-        button.style.margin = '0';
-        button.text = '';
-        button.innerHTML = '<i class="fas fa-copy"></i>';
-        button.addEventListener('click', () => {
-            if (window.fileManager) {
-                window.fileManager.showSaveAsModal();
-            }
-        });
-        return button;
-    };
+        const createSaveAsButton = () => {
+            const button = document.createElement('button');
+            button.className = 'toastui-editor-toolbar-item-wrapper';
+            button.style.background = 'inherit';
+            button.style.margin = '0';
+            button.text = '';
+            button.innerHTML = '<i class="fas fa-copy"></i>';
+            button.addEventListener('click', () => {
+                if (window.fileManager) {
+                    window.fileManager.showSaveAsModal();
+                }
+            });
+            return button;
+        };
 
-    const createNavBarButton = () => {
-        const button = document.createElement('button');
-        button.className = 'toastui-editor-toolbar-item-wrapper';
-        button.style.background = 'inherit';
-        button.style.margin = '0';
-        button.text = '';
-        button.innerHTML = '<i class="fas fa-anchor"></i>';
-        button.addEventListener('click', () => {
-            if (window.fileManager) {
-                window.navigationSidebar.toggleSidebar();
+        const createNavBarButton = () => {
+            const button = document.createElement('button');
+            button.className = 'toastui-editor-toolbar-item-wrapper';
+            button.style.background = 'inherit';
+            button.style.margin = '0';
+            button.text = '';
+            button.innerHTML = '<i class="fas fa-anchor"></i>';
+            button.addEventListener('click', () => {
+                if (window.fileManager) {
+                    window.navigationSidebar.toggleSidebar();
+                }
+            });
+            return button;
+        };
+        
+        const createNewDocButton = () => {
+            const button = document.createElement('button');
+            button.className = 'toastui-editor-toolbar-item-wrapper';
+            button.style.background = 'inherit';
+            button.style.margin = '0';
+            button.text = '';
+            button.innerHTML = '<i class="fas fa-file"></i>';
+            button.addEventListener('click', () => {
+                this.createNewDocument();
+            });
+            return button;
+        };
+        
+        const createDocReferenceButton = () => {
+            const button = document.createElement('button');
+            button.className = 'toastui-editor-toolbar-item-wrapper';
+            button.style.background = 'inherit';
+            button.style.margin = '0';
+            button.text = '';
+            button.innerHTML = '<i class="fas fa-link"></i>';
+            button.addEventListener('click', () => {
+                this.showLinkDialog();
+            });
+            return button;
+        };
+        
+        const createFontSelect = () => {
+            const container = document.createElement('div');
+            container.className = 'toastui-editor-toolbar-item-wrapper';
+            container.style.display = 'inline-block';
+            container.style.margin = '0 4px';
+            
+            const select = document.createElement('select');
+            select.className = 'toastui-editor-toolbar-select';
+            select.style.height = '28px';
+            select.style.padding = '0 5px';
+            select.style.border = '1px solid #ddd';
+            select.style.borderRadius = '3px';
+            select.style.backgroundColor = 'white';
+            
+            const fontOptions = [
+                { label: 'Arial', value: 'Arial, sans-serif' },
+                { label: 'Bush Script MT', value: 'Bush Script MT, cursive' },
+                { label: 'Courier New', value: 'Courier New, monospace' },
+                { label: 'Garamond', value: 'Garamond, serif' },
+                { label: 'Georgia', value: 'Georgia, serif' },
+                { label: 'Tahoma', value: 'Tahoma, sans-serif' },
+                { label: 'Times New Roman', value: 'Times New Roman, serif' },
+                { label: 'Trebuchet MS', value: 'Trebuchet MS, sans-serif' },
+                { label: 'Verdana', value: 'Verdana, sans-serif' }
+            ];
+            
+            fontOptions.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.label;
+                if (opt.value === initialFormatOptions.font) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+            
+            select.addEventListener('change', () => {
+                this.applyFormatOptions({ font: select.value });
+            });
+            
+            container.appendChild(select);
+            return container;
+        };
+        
+        const createFontSizeSelect = () => {
+            const container = document.createElement('div');
+            container.className = 'toastui-editor-toolbar-item-wrapper';
+            container.style.display = 'inline-block';
+            container.style.margin = '0 4px';
+            
+            const select = document.createElement('select');
+            select.className = 'toastui-editor-toolbar-select';
+            select.style.height = '28px';
+            select.style.padding = '0 5px';
+            select.style.border = '1px solid #ddd';
+            select.style.borderRadius = '3px';
+            select.style.backgroundColor = 'white';
+            
+            const fontSizeOptions = [
+                { label: '9pt', value: '9pt' },
+                { label: '10pt', value: '10pt' },
+                { label: '11pt', value: '11pt' },
+                { label: '12pt', value: '12pt' },
+                { label: '14pt', value: '14pt' },
+                { label: '16pt', value: '16pt' },
+                { label: '18pt', value: '18pt' },
+                { label: '20pt', value: '20pt' }
+            ];
+            
+            fontSizeOptions.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.label;
+                if (opt.value === initialFormatOptions.fontSize) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+            
+            select.addEventListener('change', () => {
+                this.applyFormatOptions({ fontSize: select.value });
+            });
+            
+            container.appendChild(select);
+            return container;
+        };
+        
+        const createColorPicker = () => {
+            const container = document.createElement('div');
+            container.className = 'toastui-editor-toolbar-item-wrapper';
+            container.style.display = 'inline-block';
+            container.style.margin = '0 4px';
+            
+            const picker = document.createElement('input');
+            picker.type = 'color';
+            picker.style.width = '24px';
+            picker.style.height = '24px';
+            picker.style.border = '1px solid #ddd';
+            picker.style.padding = '0';
+            picker.style.cursor = 'pointer';
+            picker.value = initialFormatOptions.fontColor;
+            
+            picker.addEventListener('change', () => {
+                this.applyFormatOptions({ fontColor: picker.value });
+            });
+            
+            container.appendChild(picker);
+            return container;
+        };
+    
+        // Initialize ToastUI Editor with custom buttons using el property
+        this.editor = new toastui.Editor({
+            el: this.editorElement,
+            height: '100%',
+            initialEditType: 'wysiwyg',
+            previewStyle: 'vertical',
+            toolbarItems: [
+                // Custom document management tools
+                [{
+                    el: createNewDocButton(),
+                    tooltip: 'New Document'
+                }, {
+                    el: createSaveButton(),
+                    tooltip: 'Save Document (Ctrl+S)'
+                }, {
+                    el: createSaveAsButton(),
+                    tooltip: 'Save As (Ctrl+Shift+S)'
+                }, {
+                    el: createNavBarButton(),
+                    tooltip: "Document Navigation"
+                }],
+                // Standard editor tools
+                ['heading', {
+                    el: createFontSelect(),
+                    tooltip: 'Font Family'
+                }, {
+                    el: createFontSizeSelect(),
+                    tooltip: 'Font Size'
+                }, 'bold', 'italic', 'strike'],
+                ['hr', 'quote'],
+                ['ul', 'ol', 'task', 'indent', 'outdent'],
+                ['code', 'codeblock', 'table', {
+                    el: createDocReferenceButton(),
+                    tooltip: 'Insert Link/Document Reference'
+                }, 'image'],
+                [{
+                    el: createColorPicker(),
+                    tooltip: 'Font Color'
+                }],
+            ],
+            hooks: {
+                addImageBlobHook: (blob, callback) => {
+                    this.uploadImage(blob)
+                        .then(url => {
+                            callback(url, 'Image');
+                        })
+                        .catch(error => {
+                            console.error('Error uploading image:', error);
+                            alert('Error uploading image: ' + error.message);
+                        });
+                    return false;
+                }
             }
         });
-        return button;
-    };
-    
-    const createNewDocButton = () => {
-        const button = document.createElement('button');
-        button.className = 'toastui-editor-toolbar-item-wrapper';
-        button.style.background = 'inherit';
-        button.style.margin = '0';
-        button.text = '';
-        button.innerHTML = '<i class="fas fa-file"></i>';
-        button.addEventListener('click', () => {
-            this.createNewDocument();
-        });
-        return button;
-    };
-    
-    const createDocReferenceButton = () => {
-        const button = document.createElement('button');
-        button.className = 'toastui-editor-toolbar-item-wrapper';
-        button.style.background = 'inherit';
-        button.style.margin = '0';
-        button.text = '';
-        button.innerHTML = '<i class="fas fa-link"></i>';
-        button.addEventListener('click', () => {
-            this.showLinkDialog();
-        });
-        return button;
-    };
-    
-    const createFontSelect = () => {
-        const container = document.createElement('div');
-        container.className = 'toastui-editor-toolbar-item-wrapper';
-        container.style.display = 'inline-block';
-        container.style.margin = '0 4px';
-        
-        const select = document.createElement('select');
-        select.className = 'toastui-editor-toolbar-select';
-        select.style.height = '28px';
-        select.style.padding = '0 5px';
-        select.style.border = '1px solid #ddd';
-        select.style.borderRadius = '3px';
-        select.style.backgroundColor = 'white';
-        
-        const fontOptions = [
-            { label: 'Arial', value: 'Arial, sans-serif' },
-            { label: 'Bush Script MT', value: 'Bush Script MT, cursive' },
-            { label: 'Courier New', value: 'Courier New, monospace' },
-            { label: 'Garamond', value: 'Garamond, serif' },
-            { label: 'Georgia', value: 'Georgia, serif' },
-            { label: 'Tahoma', value: 'Tahoma, sans-serif' },
-            { label: 'Times New Roman', value: 'Times New Roman, serif' },
-            { label: 'Trebuchet MS', value: 'Trebuchet MS, sans-serif' },
-            { label: 'Verdana', value: 'Verdana, sans-serif' }
-        ];
-        
-        fontOptions.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt.value;
-            option.textContent = opt.label;
-            if (opt.value === initialFormatOptions.font) {
-                option.selected = true;
-            }
-            select.appendChild(option);
-        });
-        
-        select.addEventListener('change', () => {
-            this.applyFormatOptions({ font: select.value });
-        });
-        
-        container.appendChild(select);
-        return container;
-    };
-    
-    const createFontSizeSelect = () => {
-        const container = document.createElement('div');
-        container.className = 'toastui-editor-toolbar-item-wrapper';
-        container.style.display = 'inline-block';
-        container.style.margin = '0 4px';
-        
-        const select = document.createElement('select');
-        select.className = 'toastui-editor-toolbar-select';
-        select.style.height = '28px';
-        select.style.padding = '0 5px';
-        select.style.border = '1px solid #ddd';
-        select.style.borderRadius = '3px';
-        select.style.backgroundColor = 'white';
-        
-        const fontSizeOptions = [
-            { label: '9pt', value: '9pt' },
-            { label: '10pt', value: '10pt' },
-            { label: '11pt', value: '11pt' },
-            { label: '12pt', value: '12pt' },
-            { label: '14pt', value: '14pt' },
-            { label: '16pt', value: '16pt' },
-            { label: '18pt', value: '18pt' },
-            { label: '20pt', value: '20pt' }
-        ];
-        
-        fontSizeOptions.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt.value;
-            option.textContent = opt.label;
-            if (opt.value === initialFormatOptions.fontSize) {
-                option.selected = true;
-            }
-            select.appendChild(option);
-        });
-        
-        select.addEventListener('change', () => {
-            this.applyFormatOptions({ fontSize: select.value });
-        });
-        
-        container.appendChild(select);
-        return container;
-    };
-    
-    const createColorPicker = () => {
-        const container = document.createElement('div');
-        container.className = 'toastui-editor-toolbar-item-wrapper';
-        container.style.display = 'inline-block';
-        container.style.margin = '0 4px';
-        
-        const picker = document.createElement('input');
-        picker.type = 'color';
-        picker.style.width = '24px';
-        picker.style.height = '24px';
-        picker.style.border = '1px solid #ddd';
-        picker.style.padding = '0';
-        picker.style.cursor = 'pointer';
-        picker.value = initialFormatOptions.fontColor;
-        
-        picker.addEventListener('change', () => {
-            this.applyFormatOptions({ fontColor: picker.value });
-        });
-        
-        container.appendChild(picker);
-        return container;
-    };
-    
-    // Initialize ToastUI Editor with custom buttons using el property
-    this.editor = new toastui.Editor({
-        el: this.editorElement,
-        height: '100%',
-        initialEditType: 'wysiwyg',
-        previewStyle: 'vertical',
-        toolbarItems: [
-            // Custom document management tools
-            [{
-                el: createNewDocButton(),
-                tooltip: 'New Document'
-            }, {
-                el: createSaveButton(),
-                tooltip: 'Save Document (Ctrl+S)'
-            }, {
-                el: createSaveAsButton(),
-                tooltip: 'Save As (Ctrl+Shift+S)'
-            }, {
-                el: createNavBarButton(),
-                tooltip: "Document Navigation"
-            }],
-            // Standard editor tools
-            ['heading', {
-                el: createFontSelect(),
-                tooltip: 'Font Family'
-            }, {
-                el: createFontSizeSelect(),
-                tooltip: 'Font Size'
-            }, 'bold', 'italic', 'strike'],
-            ['hr', 'quote'],
-            ['ul', 'ol', 'task', 'indent', 'outdent'],
-            ['code', 'codeblock', 'table', {
-                el: createDocReferenceButton(),
-                tooltip: 'Insert Link/Document Reference'
-            }, 'image'],
-            [{
-                el: createColorPicker(),
-                tooltip: 'Font Color'
-            }],
-        ],
-        hooks: {
-            addImageBlobHook: (blob, callback) => {
-                this.uploadImage(blob)
-                    .then(url => {
-                        callback(url, 'Image');
-                    })
-                    .catch(error => {
-                        console.error('Error uploading image:', error);
-                        alert('Error uploading image: ' + error.message);
-                    });
-                return false;
-            }
-        }
-    });
 
         // Add CSS for custom icons
         const styleEl = document.createElement('style');
@@ -645,6 +645,7 @@
                 console.log("Available documents loaded:", this.availableDocuments.length);
             })
             .catch(error => console.error('Error loading documents:', error));
+        fileManager.updateFileTreeLockStatus();
     }
     
     // Override the insertLink method to show our custom dialog

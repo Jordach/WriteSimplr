@@ -1,8 +1,12 @@
-import datetime
 import os
 import json
 import shutil
 import hashlib
+import uuid
+import time
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from waitress import serve
 from werkzeug.utils import secure_filename
@@ -21,6 +25,261 @@ app.config.from_object(Config)
 os.makedirs(os.path.join(app.config['WORK_DIR']), exist_ok=True)
 os.makedirs(os.path.join(app.config['WORK_DIR'], 'documents'), exist_ok=True)
 os.makedirs(os.path.join(app.config['WORK_DIR'], 'attachments'), exist_ok=True)
+
+# File lock helper functions
+def init_lock_db():
+    """Initialize the locks database."""
+    with get_lock_db() as conn:
+        cursor = conn.cursor()
+        # Create locks table if it doesn't exist
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS file_locks (
+            file_path TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        ''')
+
+        # On server startup, clear all existing locks
+        # This ensures no stale locks remain after a server restart
+        try:
+            cursor.execute("DELETE FROM file_locks")
+            deleted_count = cursor.rowcount
+            app.logger.info(f"Cleared {deleted_count} locks on server startup")
+        except Exception as e:
+            app.logger.error(f"Error clearing locks on startup: {e}")
+
+        conn.commit()
+
+@contextmanager
+def get_lock_db():
+    """Context manager for database connections."""
+    db_path = os.path.join(app.config['WORK_DIR'], 'locks.db')
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=10.0)  # 10-second timeout
+        yield conn
+    finally:
+        if conn:
+            conn.close()
+
+def sqlite_acquire_lock(file_path, session_id):
+    """
+    Attempt to acquire a lock on a file using SQLite.
+    Returns (success, owner, message)
+    """
+    now = datetime.now().isoformat()
+    
+    with get_lock_db() as conn:
+        cursor = conn.cursor()
+        
+        # Check if lock exists and is valid
+        cursor.execute(
+            "SELECT session_id, timestamp FROM file_locks WHERE file_path = ?", 
+            (file_path,)
+        )
+        lock_record = cursor.fetchone()
+        
+        if lock_record:
+            lock_owner, lock_time_str = lock_record
+            try:
+                lock_time = datetime.fromisoformat(lock_time_str)
+                # Check if lock is expired (older than 30 minutes)
+                if datetime.now() - lock_time > timedelta(minutes=30):
+                    # Lock is expired, update it
+                    cursor.execute(
+                        "UPDATE file_locks SET session_id = ?, timestamp = ? WHERE file_path = ?",
+                        (session_id, now, file_path)
+                    )
+                    conn.commit()
+                    return True, session_id, "Expired lock taken over"
+                elif lock_owner == session_id:
+                    # Session already has the lock, refresh timestamp
+                    cursor.execute(
+                        "UPDATE file_locks SET timestamp = ? WHERE file_path = ?",
+                        (now, file_path)
+                    )
+                    conn.commit()
+                    return True, session_id, "Lock refreshed"
+                else:
+                    # File is locked by another session
+                    return False, lock_owner, f"File is locked by another session since {lock_time.strftime('%H:%M:%S')}"
+            except Exception as e:
+                app.logger.error(f"Error parsing lock timestamp: {e}")
+                # If timestamp is invalid, take over the lock
+                cursor.execute(
+                    "UPDATE file_locks SET session_id = ?, timestamp = ? WHERE file_path = ?",
+                    (session_id, now, file_path)
+                )
+                conn.commit()
+                return True, session_id, "Invalid lock taken over"
+        
+        # No lock exists, create one
+        try:
+            cursor.execute(
+                "INSERT INTO file_locks (file_path, session_id, timestamp, created_at) VALUES (?, ?, ?, ?)",
+                (file_path, session_id, now, now)
+            )
+            conn.commit()
+            return True, session_id, "Lock acquired"
+        except sqlite3.IntegrityError:
+            # Race condition - another process created the lock between our check and insert
+            # Try the update approach instead
+            try:
+                cursor.execute(
+                    "UPDATE file_locks SET session_id = ?, timestamp = ? WHERE file_path = ?",
+                    (session_id, now, file_path)
+                )
+                conn.commit()
+                return True, session_id, "Lock acquired (update)"
+            except Exception as e:
+                app.logger.error(f"Error acquiring lock via update: {e}")
+                return False, None, f"Failed to acquire lock: {str(e)}"
+        except Exception as e:
+            app.logger.error(f"Error acquiring lock: {e}")
+            return False, None, f"Failed to acquire lock: {str(e)}"
+
+def sqlite_release_lock(file_path, session_id):
+    """
+    Release a lock on a file using SQLite.
+    Returns (success, message)
+    """
+    with get_lock_db() as conn:
+        cursor = conn.cursor()
+        
+        # Check if lock exists and is owned by this session
+        cursor.execute(
+            "SELECT session_id FROM file_locks WHERE file_path = ?", 
+            (file_path,)
+        )
+        lock_record = cursor.fetchone()
+        
+        if not lock_record:
+            return True, "No lock to release"
+        
+        lock_owner = lock_record[0]
+        
+        # Only the owner can release the lock
+        if lock_owner == session_id:
+            try:
+                cursor.execute(
+                    "DELETE FROM file_locks WHERE file_path = ?",
+                    (file_path,)
+                )
+                conn.commit()
+                return True, "Lock released"
+            except Exception as e:
+                app.logger.error(f"Error releasing lock: {e}")
+                return False, f"Failed to release lock: {str(e)}"
+        else:
+            return False, "Cannot release lock owned by another session"
+
+def sqlite_check_lock_status(file_path):
+    """
+    Check if a file is locked and by whom using SQLite.
+    Returns (is_locked, owner, timestamp, is_expired)
+    """
+    with get_lock_db() as conn:
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "SELECT session_id, timestamp FROM file_locks WHERE file_path = ?", 
+            (file_path,)
+        )
+        lock_record = cursor.fetchone()
+        
+        if not lock_record:
+            return False, None, None, False
+        
+        lock_owner, lock_time_str = lock_record
+        
+        try:
+            lock_time = datetime.fromisoformat(lock_time_str)
+            is_expired = datetime.now() - lock_time > timedelta(minutes=30)
+            
+            return True, lock_owner, lock_time_str, is_expired
+        except Exception as e:
+            app.logger.error(f"Error checking lock status: {e}")
+            return True, lock_owner, lock_time_str, True  # Consider invalid timestamp as expired
+
+def sqlite_get_all_locks():
+    """
+    Get all active locks in the system using SQLite.
+    """
+    locks = []
+    
+    with get_lock_db() as conn:
+        cursor = conn.cursor()
+        
+        # Get all non-expired locks
+        thirty_mins_ago = (datetime.now() - timedelta(minutes=30)).isoformat()
+        
+        cursor.execute(
+            "SELECT file_path, session_id, timestamp FROM file_locks WHERE timestamp > ?",
+            (thirty_mins_ago,)
+        )
+        
+        for file_path, session_id, timestamp in cursor.fetchall():
+            locks.append({
+                'filePath': file_path,
+                'sessionId': session_id,
+                'timestamp': timestamp
+            })
+    
+    return locks
+
+def sqlite_cleanup_expired_locks():
+    """
+    Clean up expired locks in the database.
+    """
+    with get_lock_db() as conn:
+        cursor = conn.cursor()
+        
+        # Delete locks older than 30 minutes
+        thirty_mins_ago = (datetime.now() - timedelta(minutes=30)).isoformat()
+        
+        cursor.execute(
+            "DELETE FROM file_locks WHERE timestamp < ?",
+            (thirty_mins_ago,)
+        )
+        
+        conn.commit()
+        
+        return cursor.rowcount  # Return number of deleted locks
+
+# Initialize the database on startup
+init_lock_db()
+
+# Setup a periodic cleanup task
+def setup_lock_cleanup():
+    """Setup periodic cleanup of expired locks."""
+    import threading
+    
+    def cleanup_task():
+        while True:
+            try:
+                deleted = sqlite_cleanup_expired_locks()
+                app.logger.info(f"Cleanup task removed {deleted} expired locks")
+            except Exception as e:
+                app.logger.error(f"Error in cleanup task: {e}")
+            
+            # Sleep for 15 minutes
+            time.sleep(15 * 60)
+    
+    # Start the cleanup thread
+    cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
+    cleanup_thread.start()
+
+# Start the cleanup task in a separate thread
+# Need to make sure this works with Waitress
+if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':  # Avoid duplicate in reloader
+    setup_lock_cleanup()
+
+# Replace the existing lock functions with the SQLite versions
+acquire_lock = sqlite_acquire_lock
+release_lock = sqlite_release_lock
+check_lock_status = sqlite_check_lock_status
 
 def calculate_md5(file_path):
     """Calculate MD5 hash of a file."""
@@ -107,8 +366,9 @@ def list_files():
 
 @app.route('/api/file', methods=['GET'])
 def get_file():
-    """Get the content of a markdown file."""
+    """Get the content of a markdown file and check lock status."""
     file_path = request.args.get('path', '')
+    session_id = request.args.get('session_id', '')
     
     # Basic path validation but preserving directory structure
     if '..' in file_path or file_path.startswith('/'):
@@ -131,9 +391,26 @@ def get_file():
         else:
             format_options = app.config['DEFAULT_FORMAT_OPTIONS']
         
+        # Check lock status
+        is_locked, lock_owner, lock_time, is_expired = check_lock_status(file_path)
+        
+        # If session_id is provided, try to acquire the lock
+        lock_success = False
+        lock_message = ""
+        if session_id:
+            lock_success, _, lock_message = acquire_lock(file_path, session_id)
+        
         return jsonify({
             'content': content,
-            'formatOptions': format_options
+            'formatOptions': format_options,
+            'lockStatus': {
+                'isLocked': is_locked,
+                'lockOwner': lock_owner,
+                'lockTime': lock_time,
+                'isExpired': is_expired,
+                'lockSuccess': lock_success,
+                'lockMessage': lock_message
+            }
         })
     except Exception as e:
         app.logger.error(f"Error reading file {file_path}: {str(e)}")
@@ -142,11 +419,13 @@ def get_file():
 @app.route('/api/file', methods=['POST'])
 @requires_auth
 def save_file():
-    """Save or update a markdown file."""
+    """Save or update a markdown file with lock checking."""
     data = request.json
     file_path = data.get('path', '')
     content = data.get('content', '')
     format_options = data.get('formatOptions', app.config['DEFAULT_FORMAT_OPTIONS'])
+    session_id = data.get('session_id', '')
+    force_save = data.get('force_save', False)  # Option to force save and override locks
     
     # Custom path handling for subfolders
     if '/' in file_path:
@@ -177,6 +456,31 @@ def save_file():
         file_path += '.md'
     
     full_path = os.path.join(app.config['WORK_DIR'], 'documents', file_path)
+    
+    # Check lock status if not forcing save
+    if not force_save and session_id:
+        is_locked, lock_owner, lock_time, is_expired = check_lock_status(file_path)
+        
+        if is_locked and not is_expired and lock_owner != session_id:
+            return jsonify({
+                'success': False,
+                'error': 'File is locked by another session',
+                'lockStatus': {
+                    'isLocked': True,
+                    'lockOwner': lock_owner,
+                    'lockTime': lock_time,
+                    'isExpired': is_expired
+                }
+            }), 423  # 423 Locked
+    
+    # Acquire or refresh the lock if session_id is provided
+    if session_id:
+        lock_success, _, lock_message = acquire_lock(file_path, session_id)
+        if not lock_success and not force_save:
+            return jsonify({
+                'success': False,
+                'error': lock_message
+            }), 423  # 423 Locked
     
     # Ensure directory exists
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
@@ -500,6 +804,67 @@ def check_auth():
 #     else:
 #         return jsonify({'error': 'Failed to update password or user not found'}), 404
 
+# File locks:
+@app.route('/api/file/lock', methods=['POST'])
+def manage_file_lock():
+    """Acquire, refresh, or release a lock on a file."""
+    data = request.json
+    file_path = data.get('path', '')
+    session_id = data.get('session_id', '')
+    action = data.get('action', 'acquire')  # 'acquire' or 'release'
+    force = data.get('force', False)  # Whether to force acquire a lock
+    
+    if not file_path or not session_id:
+        return jsonify({'error': 'File path and session ID are required'}), 400
+    
+    if action == 'acquire':
+        success, owner, message = acquire_lock(file_path, session_id)
+        return jsonify({
+            'success': success,
+            'lockOwner': owner,
+            'message': message
+        })
+    elif action == 'release':
+        success, message = release_lock(file_path, session_id)
+        return jsonify({
+            'success': success,
+            'message': message
+        })
+    else:
+        return jsonify({'error': 'Invalid action. Use "acquire" or "release"'}), 400
+
+@app.route('/api/files/locks', methods=['GET'])
+def get_all_locks():
+    """Get all active locks in the system."""
+    try:
+        locks = sqlite_get_all_locks()
+        return jsonify({'locks': locks})
+    except Exception as e:
+        app.logger.error(f"Error getting all locks: {str(e)}")
+        return jsonify({'error': f"Failed to get locks: {str(e)}"}), 500
+
+@app.route('/api/file/lock', methods=['GET'])
+def check_file_lock():
+    """Check the lock status of a file."""
+    file_path = request.args.get('path', '')
+    
+    if not file_path:
+        return jsonify({'error': 'File path is required'}), 400
+    
+    is_locked, owner, timestamp, is_expired = check_lock_status(file_path)
+    
+    return jsonify({
+        'isLocked': is_locked,
+        'lockOwner': owner,
+        'lockTime': timestamp,
+        'isExpired': is_expired
+    })
+
 if __name__ == '__main__':
     # app.run(debug=True)
-    serve(app, host='0.0.0.0', port='5000')
+    serve(
+        app,
+        host='0.0.0.0',
+        port='5000',
+        ident='WriteSimplr',      # Server identification
+    )

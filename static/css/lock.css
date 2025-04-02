@@ -1,0 +1,150 @@
+/* File Lock Indicator Styles */
+#lock-indicator {
+    position: fixed;
+    left: calc(var(--sidebar-width, 250px) + 8px);
+    bottom: 32pt;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+
+#lock-indicator:before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+#lock-indicator.editing {
+    background-color: #4CAF50;
+    color: white;
+}
+
+#lock-indicator.editing:before {
+    background-color: #A5D6A7;
+}
+
+#lock-indicator.read-only {
+    background-color: #F44336;
+    color: white;
+}
+
+#lock-indicator.read-only:before {
+    background-color: #EF9A9A;
+}
+
+#lock-indicator.unlocked {
+    background-color: #2196F3;
+    color: white;
+}
+
+#lock-indicator.unlocked:before {
+    background-color: #90CAF9;
+}
+
+/* Read-Only Notification */
+.read-only-notification {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(244, 67, 54, 0.9);
+    color: white;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    max-width: 400px;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.read-only-notification h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.read-only-notification button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 15px;
+}
+
+.read-only-notification button.force-edit {
+    background-color: #FF9800;
+    color: white;
+    margin-right: 10px;
+}
+
+.read-only-notification button.dismiss {
+    background-color: #555;
+    color: white;
+}
+
+/* File Item Lock Indicators in Sidebar */
+.file-item.locked {
+    position: relative;
+}
+
+.file-item.locked:after {
+    content: '🔒';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: #F44336;
+}
+
+.file-item.locked.self-locked:after {
+    color: #4CAF50;
+}
+
+/* Add highlighting for read-only content */
+.toastui-editor-contents[contenteditable="false"] {
+    background-color: rgba(244, 67, 54, 0.05);
+    border: 1px dashed #F44336;
+}
+
+/* Add a banner at the top of the editor when in read-only mode */
+.read-only-banner {
+    background-color: #F44336;
+    color: white;
+    text-align: center;
+    padding: 8px;
+    font-weight: bold;
+}
+
+/* Tooltip styles for lock info */
+.lock-tooltip {
+    position: absolute;
+    background-color: #333;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 1001;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.lock-tooltip.visible {
+    opacity: 1;
+}

@@ -12,6 +12,19 @@ class FileManager {
         // Add logging to debug initialization
         console.log("FileManager initialized, element:", this.fileTree);
         
+        // Generate a unique session ID for this browser session
+        this.sessionId = this.generateSessionId();
+        console.log("Session ID:", this.sessionId);
+        
+        // Track lock status
+        this.lockStatus = {
+            isLocked: false,
+            lockOwner: null,
+            lockTime: null,
+            isExpired: false,
+            hasLock: false
+        };
+        
         this.initEventListeners();
         
         // Initialize drag and drop functionality
@@ -19,14 +32,39 @@ class FileManager {
         
         // Explicitly load the file tree on initialization
         this.loadFileTree();
-
+    
         // Set up periodic auto-save (every 30 seconds)
         this.autoSaveInterval = setInterval(() => {
             if (window.fileManager && window.fileManager.currentFilePath) {
                 console.log("Performing periodic auto-save");
-                this.saveCurrentFile(true); // true = auto-save
+                if (window.editor.hasUnsavedChanges()) {
+                    this.saveCurrentFile(true); // true = auto-save
+                }
             }
         }, 30000);
+        
+        // This isn't necessary due to auto save also refreshing the lock when content is being added
+        // Set up periodic lock refresh (every 5 minutes)
+        // this.lockRefreshInterval = setInterval(() => {
+        //     if (window.fileManager && window.fileManager.currentFilePath && this.lockStatus.hasLock) {
+        //         console.log("Refreshing file lock");
+        //         this.refreshLock();
+        //     }
+        // }, 300000); // 5 minutes
+        
+        // Add periodic file tree refresh (every 30 seconds)
+        this.fileTreeRefreshInterval = setInterval(() => {
+            console.log("Refreshing file tree");
+            this.loadFileTree(true); // Pass true to indicate this is a background refresh
+        }, 30000); // 30 seconds
+        
+        // Handle beforeunload event to release lock when leaving
+        window.addEventListener('beforeunload', () => {
+            if (this.currentFilePath && this.lockStatus.hasLock) {
+                // Use synchronous AJAX to ensure it completes before page unload
+                this.releaseLockSync(this.currentFilePath);
+            }
+        });
     }
 
     // Add a cleanup method to Editor class
@@ -36,9 +74,38 @@ class FileManager {
             clearInterval(this.autoSaveInterval);
         }
         
+        // Clear lock refresh interval
+        if (this.lockRefreshInterval) {
+            clearInterval(this.lockRefreshInterval);
+        }
+        
+        // Clear file tree refresh interval
+        if (this.fileTreeRefreshInterval) {
+            clearInterval(this.fileTreeRefreshInterval);
+        }
+        
+        // Clear any pending lock releases
+        if (this._pendingLockReleases) {
+            Object.keys(this._pendingLockReleases).forEach(path => {
+                clearTimeout(this._pendingLockReleases[path]);
+            });
+            this._pendingLockReleases = {};
+        }
+        
+        // Release any locks we have
+        if (this.currentFilePath && this.lockStatus.hasLock) {
+            this.releaseLock(this.currentFilePath);
+        }
+        
         // Clean up editor if needed
         if (this.editor && typeof this.editor.destroy === 'function') {
             this.editor.destroy();
+        }
+        
+        // Remove lock indicator
+        const lockIndicator = document.getElementById('lock-indicator');
+        if (lockIndicator && lockIndicator.parentNode) {
+            lockIndicator.parentNode.removeChild(lockIndicator);
         }
     }
     
@@ -324,8 +391,27 @@ class FileManager {
         };
     }
     
-    loadFileTree() {
-        console.log("Loading file tree...");
+    loadFileTree(isBackgroundRefresh = false) {
+        console.log("Loading file tree...", isBackgroundRefresh ? "(background refresh)" : "");
+        
+        // Store the current active file path and expanded folders
+        let activeFilePath = null;
+        let expandedFolders = [];
+        
+        // Record currently active file
+        const activeFileItem = document.querySelector('.file-item.active');
+        if (activeFileItem) {
+            activeFilePath = activeFileItem.getAttribute('data-path');
+        }
+        
+        // Record which folders are currently expanded
+        document.querySelectorAll('.file-item.open').forEach(folder => {
+            const folderPath = folder.getAttribute('data-folder-path');
+            if (folderPath) {
+                expandedFolders.push(folderPath);
+            }
+        });
+        
         fetch('/api/files')
             .then(response => {
                 if (!response.ok) {
@@ -339,19 +425,51 @@ class FileManager {
                 const tree = this.organizeFilesIntoTree(files);
                 console.log("Organized file tree:", tree);
                 this.renderFileTree(tree);
+                
+                // Re-expand previously expanded folders
+                expandedFolders.forEach(folderPath => {
+                    const folderItem = document.querySelector(`.file-item[data-folder-path="${folderPath}"]`);
+                    if (folderItem) {
+                        folderItem.classList.add('open');
+                        
+                        // Update the folder icon
+                        const folderIcon = folderItem.querySelector('i');
+                        if (folderIcon) {
+                            folderIcon.className = 'fas fa-folder-open';
+                        }
+                        
+                        // Show the folder contents
+                        const folderContents = folderItem.querySelector('.folder-contents');
+                        if (folderContents) {
+                            folderContents.style.display = 'block';
+                        }
+                    }
+                });
+                
+                // Re-highlight the active file
+                if (activeFilePath) {
+                    this.highlightActiveFile(activeFilePath);
+                }
+                
+                // Update the lock status in the file tree
+                this.updateFileTreeLockStatus();
             })
             .catch(error => {
                 console.error('Error loading file tree:', error);
-                // Display error message in file tree
-                this.fileTree.innerHTML = `
-                    <div class="file-tree-error">
-                        <p>Error loading files: ${error.message}</p>
-                        <button id="retry-load-files">Retry</button>
-                    </div>
-                `;
-                document.getElementById('retry-load-files')?.addEventListener('click', () => {
-                    this.loadFileTree();
-                });
+                
+                // Only show an error message if this is not a background refresh
+                if (!isBackgroundRefresh) {
+                    // Display error message in file tree
+                    this.fileTree.innerHTML = `
+                        <div class="file-tree-error">
+                            <p>Error loading files: ${error.message}</p>
+                            <button id="retry-load-files">Retry</button>
+                        </div>
+                    `;
+                    document.getElementById('retry-load-files')?.addEventListener('click', () => {
+                        this.loadFileTree();
+                    });
+                }
             });
     }
     
@@ -576,14 +694,64 @@ class FileManager {
     }
     
     loadFile(path) {
-        // First, save the current file if one is open
+        // Important: Remove any existing change handlers BEFORE doing anything else
+        // This prevents the change handler from firing due to content changes during file loading
+        if (window.editor && window.editor.editor && this._lockOnChangeHandler) {
+            console.log("Removing existing change handler before file operations");
+            window.editor.editor.off('change', this._lockOnChangeHandler);
+            this._lockOnChangeHandler = null;
+        }
+        
+        // Before switching files, check if we need to save the current file
         if (this.currentFilePath && window.editor) {
-            console.log("Auto-saving before switching files");
-            this.saveCurrentFile(true);
+            // Only auto-save if we have unsaved changes
+            if (window.editor.hasUnsavedChanges && window.editor.hasUnsavedChanges()) {
+                console.log("Auto-saving before switching files due to unsaved changes");
+                this.saveCurrentFile(true);
+            } else {
+                console.log("No unsaved changes, skipping auto-save");
+            }
+            
+            // Store the current file path for delayed lock release
+            const previousFilePath = this.currentFilePath;
+            
+            // Release lock on the current file if we have one, with a delay
+            if (this.lockStatus.hasLock) {
+                console.log("Scheduling lock release on previous file:", previousFilePath);
+                
+                // Cancel any pending lock releases for this file
+                if (this._pendingLockReleases && this._pendingLockReleases[previousFilePath]) {
+                    clearTimeout(this._pendingLockReleases[previousFilePath]);
+                }
+                
+                // Initialize the pending releases object if needed
+                if (!this._pendingLockReleases) {
+                    this._pendingLockReleases = {};
+                }
+                
+                // Schedule the lock release with a delay
+                this._pendingLockReleases[previousFilePath] = setTimeout(() => {
+                    console.log("Executing delayed lock release for:", previousFilePath);
+                    this.releaseLock(previousFilePath)
+                        .then(() => {
+                            // Clean up after release
+                            delete this._pendingLockReleases[previousFilePath];
+                        })
+                        .catch(error => {
+                            console.error("Error in delayed lock release:", error);
+                            delete this._pendingLockReleases[previousFilePath];
+                        });
+                }, 500); // 500ms delay to ensure the new file is loaded first
+            }
         }
         
         console.log("Loading file:", path);
-        fetch(`/api/file?path=${encodeURIComponent(path)}`)
+        
+        // Add flag to track if this is an initial load or user-initiated change
+        this._isLoadingFile = true;
+        
+        // First just load the file content without trying to acquire a lock
+        return fetch(`/api/file?path=${encodeURIComponent(path)}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`Failed to load file: ${response.statusText}`);
@@ -593,6 +761,7 @@ class FileManager {
             .then(data => {
                 if (data.error) {
                     console.error('Error loading file:', data.error);
+                    this._isLoadingFile = false;
                     return;
                 }
                 
@@ -618,8 +787,105 @@ class FileManager {
                         window.editor.applyFormatOptions(data.formatOptions);
                     }
                 }
+                
+                // Check if we have a pending lock release for this file
+                if (this._pendingLockReleases && this._pendingLockReleases[path]) {
+                    // Cancel the pending release since we're loading the same file again
+                    console.log("Cancelling pending lock release for file we're loading:", path);
+                    clearTimeout(this._pendingLockReleases[path]);
+                    delete this._pendingLockReleases[path];
+                    
+                    // Since we already had a lock on this file and cancelled the release,
+                    // we don't need to reacquire the lock
+                    console.log("Keeping existing lock for file:", path);
+                    
+                    // Update lock status indicator
+                    this.showLockIndicator(this.lockStatus);
+                    
+                    // Mark that file loading is complete
+                    this._isLoadingFile = false;
+                    return;
+                }
+                
+                // Use a small timeout before setting up the change handler
+                // This ensures that any changes triggered by the loading process are complete
+                setTimeout(() => {
+                    // Only now attempt to acquire a lock, and only if the user makes changes
+                    // We'll set up a one-time event listener for changes
+                    if (window.editor && window.editor.editor) {
+                        // Clear any existing change handlers for lock acquisition
+                        if (this._lockOnChangeHandler) {
+                            window.editor.editor.off('change', this._lockOnChangeHandler);
+                            this._lockOnChangeHandler = null;
+                        }
+                        
+                        // Define our new handler with an explicit check for loading state
+                        this._lockOnChangeHandler = () => {
+                            // Skip if this change is happening during initial file loading
+                            if (this._isLoadingFile) {
+                                console.log("Ignoring change event during file loading");
+                                return;
+                            }
+                            
+                            console.log("User made changes, acquiring lock");
+                            
+                            // Only try to acquire lock once
+                            window.editor.editor.off('change', this._lockOnChangeHandler);
+                            this._lockOnChangeHandler = null;
+                            
+                            // Now attempt to acquire the lock
+                            this.acquireLock(path)
+                                .then(lockStatus => {
+                                    console.log("Lock acquired after user changes:", lockStatus);
+                                    this.showLockIndicator(lockStatus);
+                                    
+                                    // If we couldn't get the lock, show a notification
+                                    if (!lockStatus.hasLock && lockStatus.isLocked && !lockStatus.isExpired) {
+                                        this.showReadOnlyNotification();
+                                    }
+                                });
+                        };
+                        
+                        // Add the handler
+                        window.editor.editor.on('change', this._lockOnChangeHandler);
+                    }
+                    
+                    // Mark that file loading is complete
+                    this._isLoadingFile = false;
+                }, 300); // 300ms delay should be enough for the editor to settle
+                
+                // Check lock status (but don't try to acquire yet)
+                this.checkLockStatus(path)
+                    .then(status => {
+                        // Update our local status
+                        this.lockStatus = {
+                            isLocked: status.isLocked,
+                            lockOwner: status.lockOwner,
+                            lockTime: status.lockTime,
+                            isExpired: status.isExpired,
+                            hasLock: status.isLocked && status.lockOwner === this.sessionId
+                        };
+                        
+                        // Show lock status indicator
+                        this.showLockIndicator(this.lockStatus);
+                        
+                        // If file is locked by someone else and not expired, make the editor read-only
+                        if (status.isLocked && status.lockOwner !== this.sessionId && !status.isExpired) {
+                            // Set editor to read-only mode
+                            this.setEditorReadOnly(true);
+                            
+                            // Show notification about read-only mode
+                            this.showReadOnlyNotification();
+                        } else {
+                            // Ensure editor is editable
+                            this.setEditorReadOnly(false);
+                        }
+                    });
             })
-            .catch(error => console.error('Error loading file:', error));
+            .catch(error => {
+                console.error('Error loading file:', error);
+                this._isLoadingFile = false;
+            });
     }
     
     // Helper method to highlight the active file in the file tree
@@ -658,13 +924,46 @@ class FileManager {
                 return;
             }
         }
-
-        let wasNoFile = false;
+    
         if (!this.currentFilePath) {
             this.showNewFileModal();
             return;
         }
         
+        // When saving, we should ensure we have a lock
+        if (!this.lockStatus.hasLock) {
+            // Only for manual saves (not auto-save), acquire the lock first
+            if (!isAutoSave) {
+                return this.acquireLock(this.currentFilePath)
+                    .then(lockStatus => {
+                        // If we got the lock or force save is enabled, proceed with save
+                        if (lockStatus.hasLock || confirm("This file may be locked by another user. Force save anyway?")) {
+                            // Now do the actual save
+                            this._doSaveFile(isAutoSave);
+                        }
+                    });
+            } else {
+                // For auto-save, check if we should force acquire the lock
+                return this.checkLockStatus(this.currentFilePath)
+                    .then(status => {
+                        // Only auto-save if file isn't locked or is locked by us
+                        if (!status.isLocked || status.lockOwner === this.sessionId || status.isExpired) {
+                            // Quick acquire lock for auto-save
+                            this.acquireLock(this.currentFilePath)
+                                .then(() => this._doSaveFile(isAutoSave));
+                        } else {
+                            console.log("Auto-save skipped: file is locked by another user");
+                        }
+                    });
+            }
+        } else {
+            // We already have the lock, proceed with save
+            return this._doSaveFile(isAutoSave);
+        }
+    }
+    
+    // Extract the actual file saving logic to a separate method
+    _doSaveFile(isAutoSave = false) {
         // Get content from editor
         let content = '';
         if (window.editor && typeof window.editor.getContent === 'function') {
@@ -685,8 +984,8 @@ class FileManager {
             fontColor: '#222222'
         };
         
-        // Make the save request
-        fetch('/api/file', {
+        // Make the save request with session ID for lock verification
+        return fetch('/api/file', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -694,11 +993,16 @@ class FileManager {
             body: JSON.stringify({
                 path: this.currentFilePath,
                 content: content,
-                formatOptions: formatOptions
+                formatOptions: formatOptions,
+                session_id: this.sessionId,
+                force_save: false  // No need to force save since we check lock status beforehand
             })
         })
         .then(response => {
             if (!response.ok) {
+                if (response.status === 423) {  // Locked status code
+                    throw new Error("File is locked by another user");
+                }
                 throw new Error(`Failed to save file: ${response.status} ${response.statusText}`);
             }
             return response.json();
@@ -710,12 +1014,33 @@ class FileManager {
                 this.showSaveIndicator(isAutoSave);
             } else {
                 console.error('Error saving file:', data.error);
-                alert('Error saving file: ' + (data.error || 'Unknown error'));
+                
+                // If there's lock information in the response, update our status
+                if (data.lockStatus) {
+                    this.lockStatus = data.lockStatus;
+                    this.lockStatus.hasLock = data.lockStatus.lockOwner === this.sessionId;
+                    this.showLockIndicator(this.lockStatus);
+                    
+                    // Show lock notification if we couldn't save
+                    if (!isAutoSave) {
+                        alert('Error saving file: ' + (data.error || 'Unknown error') + 
+                              '\nThe file is currently locked by another user.');
+                    }
+                } else {
+                    if (!isAutoSave) {
+                        alert('Error saving file: ' + (data.error || 'Unknown error'));
+                    }
+                }
             }
+            
+            return data;
         })
         .catch(error => {
             console.error('Error saving file:', error);
-            alert('Error saving file: ' + error.message);
+            if (!isAutoSave) {
+                alert('Error saving file: ' + error.message);
+            }
+            throw error;  // Re-throw so caller can handle if needed
         });
     }
 
@@ -740,7 +1065,7 @@ class FileManager {
         }
         
         // Show the indicator with appropriate message
-        indicator.textContent = isAuto ? 'Auto-saved' : 'File saved';
+        indicator.textContent = isAuto ? 'Auto Saved' : 'Saved';
         indicator.style.opacity = '1';
         
         // Hide it after 2 seconds
@@ -2037,20 +2362,20 @@ class FileManager {
             this.closeModal();
         });
         
-        document.getElementById('insert-link-btn').addEventListener('click', () => {
-            const text = document.getElementById('link-text').value.trim();
-            const url = document.getElementById('link-url').value.trim();
+        // document.getElementById('insert-link-btn').addEventListener('click', () => {
+        //     const text = document.getElementById('link-text').value.trim();
+        //     const url = document.getElementById('link-url').value.trim();
             
-            if (text && url) {
-                editor.insertLink(text, url);
-                this.closeModal();
+        //     if (text && url) {
+        //         editor.insertLink(text, url);
+        //         this.closeModal();
                 
-                // Auto-save after link insertion
-                setTimeout(() => this.saveCurrentFile(true), 500);
-            } else {
-                alert('Please enter both link text and URL.');
-            }
-        });
+        //         // Auto-save after link insertion
+        //         setTimeout(() => this.saveCurrentFile(true), 500);
+        //     } else {
+        //         alert('Please enter both link text and URL.');
+        //     }
+        // });
             
         modal.style.display = 'block';
     }
@@ -2374,6 +2699,460 @@ class FileManager {
             console.error('Error moving folder:', error);
             alert(`Error moving folder: ${error.message}`);
         });
+    }
+
+    setEditorReadOnly(isReadOnly) {
+        if (window.editor && window.editor.editor) {
+            try {
+                if (window.editor.editor.isWysiwygMode()) {
+                    const editorEl = document.querySelector('.toastui-editor-contents');
+                    if (editorEl) {
+                        editorEl.contentEditable = isReadOnly ? 'false' : 'true';
+                    }
+                } else {
+                    // For markdown mode
+                    if (window.editor.editor.mdEditor && window.editor.editor.mdEditor.getEditor) {
+                        const cm = window.editor.editor.mdEditor.getEditor();
+                        if (cm) {
+                            cm.setOption('readOnly', isReadOnly);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error(`Error setting editor ${isReadOnly ? 'read-only' : 'editable'} mode:`, e);
+            }
+        }
+    }
+
+    generateSessionId() {
+        // Generate a random session ID or use an existing one
+        const storedId = localStorage.getItem('writeSimplr_sessionId');
+        if (storedId) {
+            return storedId;
+        }
+        
+        // Generate a new random ID (simple UUID v4-like implementation)
+        const randomId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+        
+        // Store it for future sessions
+        localStorage.setItem('writeSimplr_sessionId', randomId);
+        return randomId;
+    }
+    
+    acquireLock(filePath) {
+        console.log("Attempting to acquire lock for:", filePath);
+        
+        return fetch('/api/file/lock', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                path: filePath,
+                session_id: this.sessionId,
+                action: 'acquire'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Lock acquisition response:", data);
+            
+            // Update lock status
+            this.lockStatus = {
+                isLocked: true,
+                lockOwner: data.lockOwner,
+                hasLock: data.success && data.lockOwner === this.sessionId,
+                message: data.message
+            };
+            
+            return this.lockStatus;
+        })
+        .catch(error => {
+            console.error("Error acquiring lock:", error);
+            this.lockStatus.hasLock = false;
+            return { success: false, error: error.message };
+        });
+    }
+    
+    refreshLock() {
+        // Refreshing is the same as acquiring for an already owned lock
+        if (this.currentFilePath) {
+            this.acquireLock(this.currentFilePath);
+        }
+    }
+    
+    releaseLock(filePath) {
+        console.log("Releasing lock for:", filePath);
+        return fetch('/api/file/lock', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                path: filePath,
+                session_id: this.sessionId,
+                action: 'release'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Lock release response:", data);
+            
+            if (data.success) {
+                this.lockStatus = {
+                    isLocked: false,
+                    lockOwner: null,
+                    hasLock: false,
+                    message: data.message
+                };
+            }
+            
+            this.updateFileTreeLockStatus();
+            return data;
+        })
+        .catch(error => {
+            console.error("Error releasing lock:", error);
+            return { success: false, error: error.message };
+        });
+    }
+    
+    // Synchronous version for beforeunload
+    releaseLockSync(filePath) {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/file/lock', false); // false makes it synchronous
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        
+        try {
+            xhr.send(JSON.stringify({
+                path: filePath,
+                session_id: this.sessionId,
+                action: 'release'
+            }));
+            
+            if (xhr.status === 200) {
+                console.log("Lock released on page unload");
+                return true;
+            }
+        } catch (e) {
+            console.error("Error releasing lock on unload:", e);
+        }
+        
+        return false;
+    }
+    
+    checkLockStatus(filePath) {
+        console.log("Checking lock status for:", filePath);
+        
+        return fetch(`/api/file/lock?path=${encodeURIComponent(filePath)}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Lock status:", data);
+                return data;
+            })
+            .catch(error => {
+                console.error("Error checking lock status:", error);
+                return { isLocked: false, error: error.message };
+            });
+    }
+    
+    showLockIndicator(status) {
+        // Create or get lock indicator
+        let indicator = document.getElementById('lock-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'lock-indicator';
+            document.body.appendChild(indicator);
+            
+            // Set the CSS variable for sidebar width
+            this.updateSidebarWidthVar();
+            
+            // Add a one-time event listener for when layout is fully loaded
+            window.addEventListener('load', () => {
+                this.updateSidebarWidthVar();
+            });
+            
+            // Add resize listener to update the sidebar width variable
+            window.addEventListener('resize', () => {
+                this.updateSidebarWidthVar();
+            });
+        }
+        
+        // Remove all classes first
+        indicator.className = '';
+        
+        // Set class and text based on status
+        if (status.hasLock) {
+            // We have the lock
+            indicator.classList.add('editing');
+            indicator.textContent = 'Editing';
+        } else if (status.isLocked && !status.isExpired) {
+            // Someone else has the lock
+            indicator.classList.add('read-only');
+            indicator.textContent = 'Read-Only (Locked by Another)';
+        } else {
+            // No lock or expired lock
+            indicator.classList.add('unlocked');
+            indicator.textContent = 'Not Locked (Safe to Edit)';
+        }
+        
+        // Show the indicator
+        indicator.style.display = 'block';
+        
+        // Update read-only banner in editor if needed
+        // this.updateEditorReadOnlyBanner(status);
+        
+        // Update file tree to show lock status
+        this.updateFileTreeLockStatus();
+    }
+    
+    hideLockIndicator() {
+        const indicator = document.getElementById('lock-indicator');
+        if (indicator) {
+            indicator.style.display = 'none';
+        }
+    }
+
+    showReadOnlyNotification() {
+        let notification = document.createElement('div');
+        notification.className = 'read-only-notification';
+        notification.style.position = 'fixed';
+        notification.style.top = '50%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.backgroundColor = 'rgba(244, 67, 54, 0.9)';
+        notification.style.color = 'white';
+        notification.style.padding = '20px';
+        notification.style.borderRadius = '5px';
+        notification.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
+        notification.style.zIndex = '1000';
+        notification.style.maxWidth = '400px';
+        notification.style.textAlign = 'center';
+        
+        notification.innerHTML = `
+            <h3 style="margin-top: 0;">File is Locked</h3>
+            <p>This file is currently being edited by another user. You are in read-only mode.</p>
+            <p>You can either wait for the lock to be released or use "Save As" to create your own copy.</p>
+            <div style="margin-top: 15px;">
+                <button id="force-edit-btn" style="padding: 8px 15px; background: #FF9800; border: none; color: white; border-radius: 4px; cursor: pointer; margin-right: 10px;">Force Edit</button>
+                <button id="dismiss-btn" style="padding: 8px 15px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;">Dismiss</button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Add event listeners
+        document.getElementById('force-edit-btn').addEventListener('click', () => {
+            // Try to take over the lock
+            this.forceTakeLock(this.currentFilePath);
+            document.body.removeChild(notification);
+        });
+        
+        document.getElementById('dismiss-btn').addEventListener('click', () => {
+            document.body.removeChild(notification);
+        });
+        
+        // Auto-dismiss after 10 seconds
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 10000);
+    }
+    
+    // Method to forcibly take a lock
+    forceTakeLock(filePath) {
+        // First refresh the lock status to make sure it's still locked
+        this.checkLockStatus(filePath)
+            .then(status => {
+                if (!status.isLocked || status.isExpired) {
+                    // Lock is free or expired, acquire it normally
+                    return this.acquireLock(filePath);
+                } else {
+                    // Show confirmation dialog
+                    if (confirm("This file is locked by another user. Forcibly taking the lock may cause their changes to be lost. Continue?")) {
+                        // Force the lock by marking the existing one as expired
+                        fetch('/api/file/lock', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                path: filePath,
+                                session_id: this.sessionId,
+                                action: 'acquire',
+                                force: true
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                this.lockStatus.hasLock = true;
+                                this.lockStatus.isLocked = true;
+                                this.lockStatus.lockOwner = this.sessionId;
+                                
+                                // Enable editing
+                                if (window.editor && window.editor.editor) {
+                                    try {
+                                        if (window.editor.editor.isWysiwygMode()) {
+                                            const editorEl = document.querySelector('.toastui-editor-contents');
+                                            if (editorEl) {
+                                                editorEl.contentEditable = 'true';
+                                            }
+                                        } else {
+                                            // For markdown mode
+                                            if (window.editor.editor.mdEditor && window.editor.editor.mdEditor.getEditor) {
+                                                const cm = window.editor.editor.mdEditor.getEditor();
+                                                if (cm) {
+                                                    cm.setOption('readOnly', false);
+                                                }
+                                            }
+                                        }
+                                    } catch (e) {
+                                        console.error('Error enabling editor:', e);
+                                    }
+                                }
+                                
+                                // Update the indicator
+                                this.showLockIndicator(this.lockStatus);
+                                
+                                // Show success message
+                                alert("You now have editing rights for this file.");
+                            } else {
+                                alert("Failed to acquire editing rights: " + (data.message || "Unknown error"));
+                            }
+                        })
+                        .catch(error => {
+                            console.error("Error forcing lock:", error);
+                            alert("Error forcing lock: " + error.message);
+                        });
+                    }
+                }
+            });
+    }
+
+    updateSidebarWidthVar() {
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+            const sidebarWidth = sidebar.offsetWidth;
+            document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
+        }
+    }
+
+    updateEditorReadOnlyBanner(status) {
+        // Find the editor container
+        const editorContainer = document.querySelector('.editor-container');
+        if (!editorContainer) return;
+        
+        // Remove any existing banners
+        const existingBanner = document.querySelector('.read-only-banner');
+        if (existingBanner) {
+            existingBanner.parentNode.removeChild(existingBanner);
+        }
+        
+        // Add a banner if in read-only mode
+        if (status.isLocked && !status.hasLock && !status.isExpired) {
+            const banner = document.createElement('div');
+            banner.className = 'read-only-banner';
+            banner.textContent = 'This file is locked by another user (Read-Only Mode)';
+            editorContainer.insertBefore(banner, editorContainer.firstChild);
+            
+            // Also update the editor's read-only state
+            if (window.editor && window.editor.editor) {
+                try {
+                    if (window.editor.editor.isWysiwygMode()) {
+                        const editorEl = document.querySelector('.toastui-editor-contents');
+                        if (editorEl) {
+                            editorEl.contentEditable = 'false';
+                        }
+                    } else {
+                        // For markdown mode
+                        if (window.editor.editor.mdEditor && window.editor.editor.mdEditor.getEditor) {
+                            const cm = window.editor.editor.mdEditor.getEditor();
+                            if (cm) {
+                                cm.setOption('readOnly', true);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error setting editor read-only mode:', e);
+                }
+            }
+        } else {
+            // Make sure the editor is editable
+            if (window.editor && window.editor.editor) {
+                try {
+                    if (window.editor.editor.isWysiwygMode()) {
+                        const editorEl = document.querySelector('.toastui-editor-contents');
+                        if (editorEl) {
+                            editorEl.contentEditable = 'true';
+                        }
+                    } else {
+                        // For markdown mode
+                        if (window.editor.editor.mdEditor && window.editor.editor.mdEditor.getEditor) {
+                            const cm = window.editor.editor.mdEditor.getEditor();
+                            if (cm) {
+                                cm.setOption('readOnly', false);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error setting editor editable mode:', e);
+                }
+            }
+        }
+    }
+
+    updateFileTreeLockStatus() {
+        // Fetch all locked files to update the file tree
+        fetch('/api/files/locks')
+            .then(response => {
+                if (!response.ok) {
+                    // If endpoint doesn't exist yet or fails, silently continue
+                    console.warn('Could not fetch lock status for file tree:', response.status);
+                    return { locks: [] };
+                }
+                return response.json();
+            })
+            .then(data => {
+                // If data isn't in the expected format, handle gracefully
+                if (!data || !Array.isArray(data.locks)) {
+                    console.warn('Unexpected response format from locks API');
+                    return;
+                }
+                
+                // Get all file items in the tree
+                const fileItems = document.querySelectorAll('.file-item');
+                
+                // First, remove all lock classes
+                fileItems.forEach(item => {
+                    item.classList.remove('locked', 'self-locked');
+                });
+                
+                // Add lock classes based on the response
+                data.locks.forEach(lock => {
+                    const fileItem = document.querySelector(`.file-item[data-path="${lock.filePath}"]`);
+                    if (fileItem) {
+                        fileItem.classList.add('locked');
+                        
+                        // If we own the lock, add self-locked class
+                        if (lock.sessionId === this.sessionId) {
+                            fileItem.classList.add('self-locked');
+                        }
+                        
+                        // Add tooltip with lock info
+                        const lockTime = new Date(lock.timestamp).toLocaleTimeString();
+                        fileItem.setAttribute('title', `Locked by ${lock.sessionId === this.sessionId ? 'you' : 'another user'} at ${lockTime}`);
+                    }
+                });
+            })
+            .catch(error => {
+                // Gracefully handle errors during file tree lock status update
+                console.warn('Error updating file tree lock status:', error);
+            });
     }
 
     // Show rename file modal

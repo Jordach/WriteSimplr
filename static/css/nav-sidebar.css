@@ -137,9 +137,4 @@
         right: 10px;
         height: calc(100vh - 120px);
     }
-    
-    .toggle-nav-btn {
-        top: 60px;
-        right: 10px;
-    }
 }

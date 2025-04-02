@@ -69,8 +69,8 @@
 
 /* Make color picker more visible */
 .toastui-editor-color-picker .toastui-editor-color {
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    height: 32px;
 }
 
 /* Make the editor take full height */
