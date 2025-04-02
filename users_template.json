@@ -1,3 +1,4 @@
 [
-    {"username": "example_user", "password": "example_password"}
+    {"username": "example_user", "password": "example_password", "note": "to add new users, just add new lines without this note field"},
+    {"username": "another_user", "password": "another_password"}
 ]

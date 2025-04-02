@@ -624,7 +624,7 @@
                 setTimeout(() => {
                     if (window.fileManager) {
                         console.log("Auto-saving after image upload");
-                        fileManager.saveCurrentFile();
+                        fileManager.saveCurrentFile(true);
                     }
                 }, 500); // Small delay to ensure image is properly inserted
                 

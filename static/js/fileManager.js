@@ -579,7 +579,7 @@ class FileManager {
         // First, save the current file if one is open
         if (this.currentFilePath && window.editor) {
             console.log("Auto-saving before switching files");
-            this.saveCurrentFile();
+            this.saveCurrentFile(true);
         }
         
         console.log("Loading file:", path);
@@ -652,6 +652,13 @@ class FileManager {
     }
     
     saveCurrentFile(isAutoSave = false) {
+        // Disable auto-save when unauthenticated to avoid prompting every 30 seconds
+        if (window.settingsManager.authRequired && isAutoSave) {
+            if (!window.settingsManager.isAuthenticated) {
+                return;
+            }
+        }
+
         let wasNoFile = false;
         if (!this.currentFilePath) {
             this.showNewFileModal();
@@ -754,7 +761,7 @@ class FileManager {
         
         // Save the current file first if one is open
         if (this.currentFilePath && window.editor) {
-            this.saveCurrentFile();
+            this.saveCurrentFile(true);
         }
         
         console.log("Creating new file:", finalPath);
@@ -2039,7 +2046,7 @@ class FileManager {
                 this.closeModal();
                 
                 // Auto-save after link insertion
-                setTimeout(() => this.saveCurrentFile(), 500);
+                setTimeout(() => this.saveCurrentFile(true), 500);
             } else {
                 alert('Please enter both link text and URL.');
             }

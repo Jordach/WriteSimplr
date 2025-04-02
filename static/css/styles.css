@@ -503,26 +503,6 @@ body {
     margin-top: 10px;
 }
 
-.change-password-btn, .delete-user-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 5px;
-    margin-left: 5px;
-}
-
-.change-password-btn {
-    color: var(--primary-color);
-}
-
-.delete-user-btn {
-    color: #d32f2f;
-}
-
-.change-password-btn:hover, .delete-user-btn:hover {
-    opacity: 0.8;
-}
-
 /* Input Styles */
 .settings-tabs input[type="text"],
 .settings-tabs input[type="password"] {

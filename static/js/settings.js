@@ -148,26 +148,6 @@
                     <p style="text-align: center;">You are currently logged in as <strong>${this.currentUsername}</strong>.</p>
                     <button id="logout-btn" class="settings-btn">Log Out</button>
                 </div>
-                
-                <div class="auth-management">
-                    <h3>User Management</h3>
-                    <div id="user-list-container">
-                        Loading users...
-                    </div>
-                    
-                    <div style="margin-top: 20px;">
-                        <h4>Add New User</h4>
-                        <div style="margin-bottom: 10px;">
-                            <label for="new-username">Username:</label>
-                            <input type="text" id="new-username" style="width: 100%; padding: 8px; box-sizing: border-box;">
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <label for="new-password">Password:</label>
-                            <input type="password" id="new-password" style="width: 100%; padding: 8px; box-sizing: border-box;">
-                        </div>
-                        <button id="add-user-btn" class="settings-btn">Add User</button>
-                    </div>
-                </div>
             `;
         } else {
             // User is not authenticated, show login form
@@ -214,14 +194,6 @@
             document.getElementById('logout-btn')?.addEventListener('click', () => {
                 this.logout();
             });
-            
-            // Add user button
-            document.getElementById('add-user-btn')?.addEventListener('click', () => {
-                this.addUser();
-            });
-            
-            // Load and display user list
-            this.loadUserList();
         } else {
             // Login button
             document.getElementById('login-btn')?.addEventListener('click', () => {
@@ -462,75 +434,6 @@
                 this.authRequired = false;
                 this.isAuthenticated = false;
             });
-    }
-    
-    loadUserList() {
-        const userListContainer = document.getElementById('user-list-container');
-        
-        if (!userListContainer) return;
-        
-        // Show loading
-        userListContainer.innerHTML = 'Loading users...';
-        
-        // Fetch users
-        fetch('/api/auth/users', {
-            headers: {
-                'Authorization': window.authHeader
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Failed to load users');
-            }
-            return response.json();
-        })
-        .then(users => {
-            if (users.length === 0) {
-                userListContainer.innerHTML = '<p>No users found.</p>';
-                return;
-            }
-            
-            // Create user list
-            let userListHtml = '<ul class="user-list" style="list-style: none; padding: 0;">';
-            
-            users.forEach(username => {
-                userListHtml += `
-                    <li style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee;">
-                        <span>${username}</span>
-                        <div>
-                            <button class="change-password-btn" data-username="${username}" title="Change Password">
-                                <i class="fas fa-key"></i>
-                            </button>
-                            <button class="delete-user-btn" data-username="${username}" title="Delete User">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </li>
-                `;
-            });
-            
-            userListHtml += '</ul>';
-            userListContainer.innerHTML = userListHtml;
-            
-            // Add event listeners for user actions
-            document.querySelectorAll('.change-password-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const username = e.currentTarget.dataset.username;
-                    this.showChangePasswordModal(username);
-                });
-            });
-            
-            document.querySelectorAll('.delete-user-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const username = e.currentTarget.dataset.username;
-                    this.deleteUser(username);
-                });
-            });
-        })
-        .catch(error => {
-            console.error('Error loading users:', error);
-            userListContainer.innerHTML = `<p style="color: red;">Error loading users: ${error.message}</p>`;
-        });
     }
     
     showChangePasswordModal(username) {
