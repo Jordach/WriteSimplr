@@ -85,8 +85,8 @@ def sqlite_acquire_lock(file_path, session_id):
             lock_owner, lock_time_str = lock_record
             try:
                 lock_time = datetime.fromisoformat(lock_time_str)
-                # Check if lock is expired (older than 30 minutes)
-                if datetime.now() - lock_time > timedelta(minutes=30):
+                # Check if lock is expired (older than 10 minutes)
+                if datetime.now() - lock_time > timedelta(minutes=10):
                     # Lock is expired, update it
                     cursor.execute(
                         "UPDATE file_locks SET session_id = ?, timestamp = ? WHERE file_path = ?",
@@ -196,7 +196,7 @@ def sqlite_check_lock_status(file_path):
         
         try:
             lock_time = datetime.fromisoformat(lock_time_str)
-            is_expired = datetime.now() - lock_time > timedelta(minutes=30)
+            is_expired = datetime.now() - lock_time > timedelta(minutes=10)
             
             return True, lock_owner, lock_time_str, is_expired
         except Exception as e:
@@ -213,7 +213,7 @@ def sqlite_get_all_locks():
         cursor = conn.cursor()
         
         # Get all non-expired locks
-        thirty_mins_ago = (datetime.now() - timedelta(minutes=30)).isoformat()
+        thirty_mins_ago = (datetime.now() - timedelta(minutes=10)).isoformat()
         
         cursor.execute(
             "SELECT file_path, session_id, timestamp FROM file_locks WHERE timestamp > ?",
@@ -237,7 +237,7 @@ def sqlite_cleanup_expired_locks():
         cursor = conn.cursor()
         
         # Delete locks older than 30 minutes
-        thirty_mins_ago = (datetime.now() - timedelta(minutes=30)).isoformat()
+        thirty_mins_ago = (datetime.now() - timedelta(minutes=10)).isoformat()
         
         cursor.execute(
             "DELETE FROM file_locks WHERE timestamp < ?",

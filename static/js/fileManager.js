@@ -24,7 +24,6 @@ class FileManager {
             isExpired: false,
             hasLock: false
         };
-        
         this.initEventListeners();
         
         // Initialize drag and drop functionality
@@ -57,7 +56,10 @@ class FileManager {
             console.log("Refreshing file tree");
             this.loadFileTree(true); // Pass true to indicate this is a background refresh
         }, 30000); // 30 seconds
+
         
+        this.setupLockStatusUpdater();
+
         // Handle beforeunload event to release lock when leaving
         window.addEventListener('beforeunload', () => {
             if (this.currentFilePath && this.lockStatus.hasLock) {
@@ -90,6 +92,11 @@ class FileManager {
                 clearTimeout(this._pendingLockReleases[path]);
             });
             this._pendingLockReleases = {};
+        }
+
+        if (this._lockStatusInterval) {
+            clearInterval(this._lockStatusInterval);
+            this._lockStatusInterval = null;
         }
         
         // Release any locks we have
@@ -881,6 +888,11 @@ class FileManager {
                             this.setEditorReadOnly(false);
                         }
                     });
+            })
+            .then(() => {
+                // Reinitialize the lock status updater when loading a new file
+                this.setupLockStatusUpdater();
+                console.log("Lock status updater reinitialized for:", path);
             })
             .catch(error => {
                 console.error('Error loading file:', error);
@@ -2885,7 +2897,7 @@ class FileManager {
         indicator.className = '';
         
         // Set class and text based on status
-        if (status.hasLock) {
+        if (status.hasLock && !status.isExpired) {
             // We have the lock
             indicator.classList.add('editing');
             indicator.textContent = 'Editing';
@@ -2896,7 +2908,7 @@ class FileManager {
         } else {
             // No lock or expired lock
             indicator.classList.add('unlocked');
-            indicator.textContent = 'Not Locked (Safe to Edit)';
+            indicator.textContent = 'Ready to Edit';
         }
         
         // Show the indicator
@@ -3548,5 +3560,58 @@ class FileManager {
                 console.error('Error loading folders for move:', error);
                 alert(`Error loading folders: ${error.message}`);
             });
+    }
+
+    setupLockStatusUpdater() {
+        // Clear any existing interval
+        if (this._lockStatusInterval) {
+            clearInterval(this._lockStatusInterval);
+            this._lockStatusInterval = null;
+        }
+        
+        // Set up a new interval to update lock status every 30 seconds
+        this._lockStatusInterval = setInterval(() => {
+            // Only check if we have a current file path
+            if (this.currentFilePath) {
+                console.log("Updating lock status for:", this.currentFilePath);
+                
+                // Check the lock status
+                this.checkLockStatus(this.currentFilePath)
+                    .then(status => {
+                        // Update our local status
+                        this.lockStatus = {
+                            isLocked: status.isLocked,
+                            lockOwner: status.lockOwner,
+                            lockTime: status.lockTime,
+                            isExpired: status.isExpired,
+                            hasLock: status.isLocked && status.lockOwner === this.sessionId
+                        };
+                        
+                        // Show lock status indicator
+                        this.showLockIndicator(this.lockStatus);
+                        
+                        // If file is locked by someone else and not expired, make the editor read-only
+                        if (status.isLocked && status.lockOwner !== this.sessionId && !status.isExpired) {
+                            // Set editor to read-only mode
+                            this.setEditorReadOnly(true);
+                            
+                            // Only show notification if lock status has changed
+                            if (!this._previousLockedStatus) {
+                                this.showReadOnlyNotification();
+                                this._previousLockedStatus = true;
+                            }
+                        } else {
+                            // Ensure editor is editable
+                            this.setEditorReadOnly(false);
+                            this._previousLockedStatus = false;
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error updating lock status:", error);
+                    });
+            }
+        }, 30000); // 30 seconds
+        
+        console.log("Lock status updater initialized");
     }
 }

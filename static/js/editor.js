@@ -332,7 +332,7 @@
     
     initEventListeners() {
         // Keyboard shortcuts - capture at document level
-        document.addEventListener('keydown', (e) => {           
+        document.addEventListener('keydown', (e) => {
             // Check for Ctrl+S or Cmd+S (for Mac)
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 // Prevent default browser save action and editor strikethrough
