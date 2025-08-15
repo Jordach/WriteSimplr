@@ -1260,9 +1260,9 @@ class FileManager {
         
         // Capture current editor content if available
         let currentContent = '';
-        if (window.editor && typeof window.editor.getContent === 'function') {
-            currentContent = window.editor.getContent();
-        }
+        // if (window.editor && typeof window.editor.getContent === 'function') {
+        //     currentContent = window.editor.getContent();
+        // }
         
         modalTitle.textContent = 'Create New File';
         
