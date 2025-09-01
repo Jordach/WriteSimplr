@@ -1,0 +1,1 @@
+This folder is intended to allow the end user to place things such as rclone scripts to sync the work folder to a remote directory as WriteSimplr was not intended for automated syncing services such as Google Drive.
