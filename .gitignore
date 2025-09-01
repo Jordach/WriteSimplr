@@ -2,4 +2,6 @@ __pycache__/*
 __pycache__
 work
 work/*
+user
+user/*
 users.json
